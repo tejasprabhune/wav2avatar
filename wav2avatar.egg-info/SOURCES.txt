@@ -1,0 +1,11 @@
+setup.py
+wav2avatar/__init__.py
+wav2avatar.egg-info/PKG-INFO
+wav2avatar.egg-info/SOURCES.txt
+wav2avatar.egg-info/dependency_links.txt
+wav2avatar.egg-info/requires.txt
+wav2avatar.egg-info/top_level.txt
+wav2avatar/effects/__init__.py
+wav2avatar/effects/effects.py
+wav2avatar/formats/__init__.py
+wav2avatar/formats/format.py
