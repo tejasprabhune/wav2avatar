@@ -21,11 +21,11 @@ import matplotlib.pyplot as plt
 
 from collections import deque
 from multiprocessing import shared_memory
+#import shared_memory
 
 from wav2avatar.utils.nema_data import NEMAData
 from wav2avatar.utils.wav2ema import EMAFromMic
-
-
+from wav2avatar.utils.utils import Utils
 
 class Wav2Maya:
     def __init__(
@@ -37,18 +37,22 @@ class Wav2Maya:
         self.wav_path = wav_path
         self.parts = parts
 
-        self.log("reading wav file")
+        Utils.log("reading wav file")
         self.wav_arr, self.wav_sr = sf.read(self.wav_path)
         self.vad = webrtcvad.Vad(1)
 
-        self.log("allocating shared memory")
+        Utils.log("allocating shared memory")
+
         self.shm = shared_memory.SharedMemory(
             name="audio_stream", 
             create=True, 
             size=5000000
         )
+        #except FileExistsError:
+        #self.shm = shared_memory.SharedMemory(name="audio_stream", 
+        #                                          size=5000000)
 
-        self.log("importing model")
+        Utils.log("importing model")
         #model_dir = (
         #    "C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
         #    + "Synthesis/hprc_no_m1f2_h2emaph_gru_joint_nogan_model/"
@@ -71,11 +75,13 @@ class Wav2Maya:
         }
         #self.cumulative_ema = []
         self.cumulative_ema = deque(maxlen=20)
+        self.cumulative_npy = np.array([]).reshape(0, 12)
 
         self.current_frame = 0
 
         #zeros_arr = np.zeros((1600,))
         self.ema_handler.wav_to_ema(self.wav_arr[:1600])
+        self.first_npy_frame = self.ema_handler.wav_to_ema(self.wav_arr[:1600])[:, 0:12]
 
         # Timed test lists:
         self.model_times = []
@@ -103,7 +109,7 @@ class Wav2Maya:
                 yield indata[:, 0]
 
     def stream_to_memory(self):
-        self.log("sharing to memory")
+        Utils.log("sharing to memory")
         send_start = time.time()
         print(len(self.cumulative_ema))
         ser_message = pickle.dumps(self.cumulative_ema, protocol=4)
@@ -115,35 +121,69 @@ class Wav2Maya:
 
     def batch_to_ema(self, batch):
         """Returns maya_data (dict) of 10 frame data for each part"""
-        self.log("converting batch to ema")
+        Utils.log("converting batch to ema")
 
-        self.cumulative_audio = self.update_cumulative(
+        self.cumulative_audio = Utils.update_cumulative(
             self.cumulative_audio, batch
         )
         
+        if len(self.cumulative_audio) < 3200 or type(self.prev_batch) == type(None):
+            print(f"size: {len(self.cumulative_audio)}")
+            self.prev_batch = batch
+            return 0
+        
+
+        original_cumulative_audio = self.cumulative_audio[:]
+        while len(self.cumulative_audio) < 32000:
+            print("updating")
+            self.cumulative_audio = Utils.update_cumulative(self.cumulative_audio, self.cumulative_audio)
+
         output_frames = None
 
-        if self.is_speech(batch, self.wav_sr):
-
+        if Utils.is_speech(self.vad, self.prev_batch, self.wav_sr):
             model_start = time.time()
             last_second_ema = self.ema_handler.wav_to_ema(
-                self.cumulative_audio[-16000:]
+                self.cumulative_audio[-32000:]
             )
-            last_second_nema = NEMAData(ema_data=last_second_ema, is_file=False)
 
-            last_second_nema.offset_parts(["li"])
+            second_last_batch = last_second_ema[-20:-10, 0:12]
+
+            if len(second_last_batch) < 1:
+                return 0
+            #full_curr_batch = last_second_ema[-10:, 0:12]
+            
+            Utils.parts_interpolate_batch(self.cumulative_npy, second_last_batch)
+
+            self.cumulative_npy = np.vstack(
+                [self.cumulative_npy, second_last_batch]
+            )
+            last_second_nema = NEMAData(
+                ema_data=last_second_ema, is_file=False
+            )
+
+            last_second_nema.offset_parts(["li", "ll", "ul"])
 
             for part in self.parts:
-                last_second_nema.maya_data[part] = last_second_nema.maya_data[part][-10:]
+                last_second_nema.maya_data[part] = last_second_nema.maya_data[
+                    part
+                ][-10:]
+                self.last_ema_frame[part][0] = last_second_nema.maya_data[
+                    part
+                ][-1:][0]
 
-                self.last_ema_frame[part][0] = last_second_nema.maya_data[part][-1:][0]
-            
             output_frames = last_second_nema.maya_data
 
             model_end = time.time()
-            
+
         else:
             model_start = time.time()
+
+            if self.cumulative_npy.shape == (0, 12):
+                self.cumulative_npy = self.first_npy_frame
+            else:
+                self.cumulative_npy = np.vstack(
+                    [self.cumulative_npy, self.cumulative_npy[-10:]]
+                )
 
             frames_data = {}
             for part in self.parts:
@@ -153,64 +193,39 @@ class Wav2Maya:
             output_frames = frames_data
             model_end = time.time()
         self.model_times.append(model_end - model_start)
+        print(self.cumulative_npy.shape)
+        self.prev_batch = batch
+        self.cumulative_audio = original_cumulative_audio
         return output_frames
     
-    async def input_to_ema(self):
-        self.log("listening")
-        async for batch in self.inputstream_generator():
-        #async for batch in self.wav_inputs_generator():
+    async def input_to_ema(self, listen=True, recv_wav2maya=None):
+        Utils.log("listening")
+
+        if listen:
+            audio_generator = self.inputstream_generator
+        else:
+            audio_generator = self.wav_inputs_generator
+
+        async for batch in audio_generator():
             print(f"batch: {self.current_frame}")
             message = [self.current_frame, self.batch_to_ema(batch)]
             #self.send_message([self.current_frame, message])
             self.cumulative_ema.append(message)
-            self.stream_to_memory()
+
+            if type(recv_wav2maya) == type(None):
+                self.stream_to_memory()
+            else:
+                print(message)
+                recv_wav2maya.animate_mouth(message[1])
             self.current_frame += 1
         
-    async def run(self):
+    async def run(self, listen=True, recv_wav2maya=None):
         try:
-            await asyncio.wait_for(self.input_to_ema(), timeout=15)
+            await asyncio.wait_for(self.input_to_ema(listen, recv_wav2maya), timeout=15)
         except asyncio.TimeoutError:
             pass
 
-    def interpolate_batch(prev_batch, curr_batch):
-        cubic_bez = lambda arr, t: ((1 - t) ** 3) * arr[0] + 3 * ((1 - t) ** 2) * t * arr[1] + 3 * (1 - t) * (t ** 2) * arr[2] + (t ** 3) * arr[3]
 
-        interp_batch = []
-        interp_batch.append(prev_batch[-1])
-        interp_batch.extend(curr_batch[:3])
-
-        ys = [cubic_bez(interp_batch, t / 3) for t in range(0, 4)]
-
-        interpolated_next_batch = []
-        interpolated_next_batch.extend(ys[1:]) # ignore last frame from prev batch
-        interpolated_next_batch.extend(curr_batch[3:])
-
-        return interpolated_next_batch
-
-    def update_cumulative(self, cumulative, update):
-        if not len(cumulative):
-            cumulative = update
-        else:
-            cumulative = np.append(cumulative, update, axis=0)
-        return cumulative
-
-    def float_to_pcm16(self, audio):
-        ints = (audio * 32768).astype(np.int16)
-        little_endian = ints.astype('<u2')
-        buf = little_endian.tobytes()
-        return buf
-
-    def is_speech(self, audio, sr):
-        speech_segments = []
-        for i in range(0, len(audio), sr // 100):
-            if self.vad.is_speech(
-                self.float_to_pcm16(audio[i : i + sr // 100]), sr
-            ):
-                speech_segments.append(audio[i : i + sr // 100])
-        return len(speech_segments) >= 9
-
-    def log(self, message):
-        print(f"\n--- {message} ---")
 
     def save_model_times_fig(self):
         plt.figure(1, figsize=(8, 6))
@@ -230,7 +245,7 @@ if __name__ == "__main__":
     sender = Wav2Maya(wav_path="audios/mngu0_s1_0008.wav",port=5010)
 
     try:
-        asyncio.run(sender.run())
+        asyncio.run(sender.run(listen=False))
     except KeyboardInterrupt:
         sys.exit(0)
     

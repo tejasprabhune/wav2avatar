@@ -89,8 +89,11 @@ class EMAFromMic():
             self.inversion_model, self.inversion_config = self.load_model_eval(
                 model_dir, device = self.inversion_device, return_config=True)
 
+    def clear_cache(self):
+        if self.gru:
+            del self.hubert_model
 
-
+            torch.cuda.empty_cache()
 
     def wav2mfcc(wav, sr, num_mfcc=13, n_mels=40, n_fft=320, hop_length=160):
         feat = librosa.feature.mfcc(y=wav, sr=sr, n_mfcc=num_mfcc, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
@@ -117,6 +120,9 @@ class EMAFromMic():
                 else:
                     pred = self.inversion_model.inference(feat, normalize_before=False)
                 #np.save("test.npy", pred.cpu().numpy())
+                del feat
+                torch.cuda.empty_cache()
+
                 return pred.cpu().numpy()
 
         feat = self.make_wavlm_embeddings(audio)
@@ -130,6 +136,8 @@ class EMAFromMic():
             # (L, H)
             pred = pred[:, 50 : 62] # for ema only
             #np.save(os.path.join(output_dir, get_fid(p)), pred.cpu().numpy())
+            del feat
+            torch.cuda.empty_cache()
             return pred.cpu().numpy()
         
     

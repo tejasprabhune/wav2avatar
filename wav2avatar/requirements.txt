@@ -1,0 +1,7 @@
+webrtcvad
+webrtcvad-wheels
+packaging
+importlib-metadata
+requests
+typing-extensions
+librosa

@@ -9,7 +9,7 @@ Repo cleaning in progress!
 1. Download and install Maya
 2. Open `maya_models/stream_model.mb`
 3. Open `recv_wav2maya.py` in Maya
-4. Run `stream_wav2maya.py`
+4. Run `stream_wav2maya.py` (replacing the model location in the code - cli coming)
 
 When you see "allocating shared memory", run
 `recv_wav2maya.py` in Maya. When you see "listening", you should be able to
@@ -20,7 +20,9 @@ data protocol 4 from `multiprocessing.shared_memory`, so you should run
 `mayapy -m pip install shared-memory38` before running.
 
 
-## Notes on the Maya Scripting
+## Notes on various bugs encountered so far
+
+### Maya Scripting
 
 Maya uses their own Python environment which is located as `mayapy` in 
 `C:\Program Files\Autodesk\Maya<VersionNumber>\bin\` or 
@@ -33,3 +35,20 @@ instance by running `mayapy -m pip install numpy`
 
 The reason this is needed is to use the `maya.cmds` library, where we are able
 to generate whole Maya ASCII files and polygons within those files.
+
+### webrtcvad
+
+If you run into an error installing `webrtcvad` on Windows, use
+
+`pip install webrtcvad-wheels` or `mayapy -m pip install webrtcvad-wheels`
+
+for the corresponding `mayapy` installation.
+
+### s3prl, torchaudio
+
+`s3prl` does not support Windows, but we can work around this by getting
+rid of all the times `s3prl.hub` requires the `sox_io` backend after cloning
+the repo, then locally installing that version instead of from the original
+`pip` library
+
+We do a similar thing for `torchaudio` if it throws an error.
