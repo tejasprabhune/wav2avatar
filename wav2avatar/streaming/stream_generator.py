@@ -1,4 +1,6 @@
 import asyncio
+import random
+
 import sounddevice as sd
 import soundfile as sf
 
@@ -26,6 +28,7 @@ class StreamGenerator():
         #sd.play(self.wav_arr, self.wav_sr)
         index = 0
         while index + chunksize <= len(self.wav_arr):
+            await asyncio.sleep(random.random()) # simulates i/o operation from live mic
             yield self.wav_arr[index : index + chunksize]
             index += chunksize
 
