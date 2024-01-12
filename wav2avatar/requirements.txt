@@ -5,3 +5,4 @@ importlib-metadata
 requests
 typing-extensions
 librosa
+shared_memory
