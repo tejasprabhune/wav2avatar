@@ -1,3 +1,4 @@
 audios/
 wav2avatar.egg-info/
 dist/
+__pycache__/
