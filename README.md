@@ -6,10 +6,33 @@ Repo cleaning in progress!
 
 ## Visualizing your own audio:
 
-1. Download and install Maya
-2. Open `maya_models/stream_model.mb`
-3. Open `recv_wav2maya.py` in Maya
-4. Run `stream_wav2maya.py` (replacing the model location in the code - cli coming)
+1. Download and install Autodesk Maya 2022 or 2023 (other versions not 
+tested).
+
+1. Clone this repository and `cd` into the `wav2avatar` directory:
+
+    ```
+    git clone https://github.com/tejasprabhune/wav2avatar
+
+    cd wav2avatar
+    ```
+
+1. Install `wav2avatar` as an editable module:
+
+    ```
+    pip install -e .
+    ```
+
+
+### Offline
+
+
+
+### Streaming (WIP)
+
+1. Open `wav2avatar/maya_models/stream_model.mb`
+2. Open `scripts/recv_wav2maya.py` in Maya
+3. Run `scripts/stream_wav2maya.py` (replacing the model location in the code - cli coming)
 
 When you see "allocating shared memory", run
 `recv_wav2maya.py` in Maya. When you see "listening", you should be able to
@@ -44,7 +67,7 @@ If you run into an error installing `webrtcvad` on Windows, use
 
 for the corresponding `mayapy` installation.
 
-### s3prl, torchaudio
+### s3prl + torchaudio
 
 `s3prl` does not support Windows, but we can work around this by getting
 rid of all the times `s3prl.hub` requires the `sox_io` backend after cloning
