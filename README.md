@@ -23,6 +23,8 @@ tested).
     pip install -e .
     ```
 
+1. Install `articulatory` from `https://github.com/articulatory/articulatory`.
+
 ### Offline
 
 1. Run `inversion/wav2ema.py` to generate a `.npy` file for your `.wav` audio:
@@ -70,7 +72,7 @@ When you see "allocating shared memory", run
 `recv_wav2maya.py` in Maya. When you see "listening", you should be able to
 speak and see the corresponding animations in Maya.
 
-Note: mayapy in Maya 2022 uses Python 3.6 which doesn't support pickling
+Note: `mayapy` in Maya 2022 uses Python 3.6 which doesn't support pickling
 data protocol 4 from `multiprocessing.shared_memory`, so you should run
 `mayapy -m pip install shared-memory38` before running.
 
