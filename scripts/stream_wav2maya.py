@@ -24,8 +24,8 @@ from multiprocessing import shared_memory
 #import shared_memory
 
 from wav2avatar.utils.nema_data import NEMAData
-from wav2avatar.utils.wav2ema import EMAFromMic
 from wav2avatar.utils.utils import Utils
+from wav2avatar.inversion.wav2ema import Wav2EMA
 
 class Wav2Maya:
     def __init__(
@@ -62,7 +62,7 @@ class Wav2Maya:
         model_dir = (
             "C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
             + "Synthesis/hprc_no_m1f2_wlm2tvph_norm_transformer_conv_joint_nogan_v5/")
-        self.ema_handler = EMAFromMic(model_dir=model_dir, gru=False)
+        self.ema_handler = Wav2EMA(model_dir=model_dir, gru=False)
 
         self.cumulative_audio = []
         self.last_ema_frame = {

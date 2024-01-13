@@ -1,48 +1,32 @@
-import sounddevice as sd
-import soundfile as sf
-
-from tqdm import tqdm
-import numpy as np
-import librosa
-import torchaudio
-torchaudio.USE_SOUNDFILE_LEGACY_INTERFACE = False
-
 import os
 import yaml
 import torch
+import librosa
+import argparse
+import torchaudio
+torchaudio.USE_SOUNDFILE_LEGACY_INTERFACE = False
 
-from scipy import stats
-from queue import Queue
-
-from articulatory.bin.decode import ar_loop
-from articulatory.utils import load_model
+import numpy as np
 import s3prl.hub as hub
 
-class MicrophoneStream():
-    def __init__(self):
-        self.mic_data = np.ndarray([])
-        self.q = Queue()
-        self.set_batch = lambda indata, frames, time, status: self.q.put(indata.copy().reshape(frames,))
-        self.stream = sd.InputStream(samplerate=16000, blocksize=1600, channels=1, callback=self.set_batch)
-        self.stream.start()
+from scipy import stats
+from articulatory.bin.decode import ar_loop
+from articulatory.utils import load_model
 
-    def get_next_batch(self, frames=57862):
-        print(self.stream.active)
-        print(list(self.q.queue))
-        return self.q.get()
+class Wav2EMA():
+    """
+    Sets up speech to EMA and speech to MRI inversion models (WIP):
+    
+    1. BiGRU implementation from Wu et al. 2023
+    (https://ieeexplore.ieee.org/document/10096796)
 
-class EmulatedMicrophoneStream(MicrophoneStream):
-    def __init__(self, file):
-        super().__init__()
-        self.file = file
-        self.stream = sf.blocks(file, blocksize=57862)
+    2. Transformer EMA inversion implementation by Bohan Yu
 
-    def get_next_batch(self):
-        return next(self.stream)
-
-class EMAFromMic():
-    def __init__(self, model_dir="hprc_no_m1f2_h2emaph_gru_join_nogan_model", gru=True):
-        self.gru = gru
+    3. Transformer MRI inversion implementation by Prabhune et al. (Bohan Yu)
+    (https://speech-avatar.github.io/multimodal-mri-avatar/)
+    """
+    def __init__(self, model_dir="hprc_no_m1f2_h2emaph_gru_join_nogan_model", gru=True, mri=False):
+        self.mri = mri
         if gru:
             self.input_modality = 'hubert'
 
@@ -89,57 +73,30 @@ class EMAFromMic():
             self.inversion_model, self.inversion_config = self.load_model_eval(
                 model_dir, device = self.inversion_device, return_config=True)
 
-    def clear_cache(self):
-        if self.gru:
-            del self.hubert_model
-
-            torch.cuda.empty_cache()
-
     def wav2mfcc(wav, sr, num_mfcc=13, n_mels=40, n_fft=320, hop_length=160):
         feat = librosa.feature.mfcc(y=wav, sr=sr, n_mfcc=num_mfcc, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
         feat = stats.zscore(feat, axis=None)
         return feat
 
     def wav_to_ema(self, audio):
-        if self.gru:
-            with torch.no_grad():
-                wavs = [torch.from_numpy(audio).float().to(self.hubert_device)]
-                #print(wavs)
-                states = self.hubert_model(wavs)["hidden_states"]
-                feature = states[-1].squeeze(0)
-                target_length = len(feature) * self.interp_factor
-                feature = torch.nn.functional.interpolate(
-                    feature.unsqueeze(0).transpose(1, 2), 
-                    size=target_length, 
-                    mode='linear', 
-                    align_corners=False)
-                feature = feature.transpose(1, 2).squeeze(0)  # (seq_len, num_feats)
-                feat = feature.to(self.inversion_device)
-                if "use_ar" in self.inversion_config["generator_params"] and self.inversion_config["generator_params"]["use_ar"]:
-                    pred = ar_loop(self.inversion_model, feat, self.inversion_config, normalize_before=False)
-                else:
-                    pred = self.inversion_model.inference(feat, normalize_before=False)
-                #np.save("test.npy", pred.cpu().numpy())
-                del feat
-                torch.cuda.empty_cache()
-
-                return pred.cpu().numpy()
-
-        feat = self.make_wavlm_embeddings(audio)
         with torch.no_grad():
-            feat = torch.tensor(feat, dtype=torch.float).to(self.inversion_device)
+            wavs = [torch.from_numpy(audio).float().to(self.hubert_device)]
+            states = self.hubert_model(wavs)["hidden_states"]
+            feature = states[-1].squeeze(0)
+            target_length = len(feature) * self.interp_factor
+            feature = torch.nn.functional.interpolate(
+                feature.unsqueeze(0).transpose(1, 2), 
+                size=target_length, 
+                mode='linear', 
+                align_corners=False)
+            feature = feature.transpose(1, 2).squeeze(0)  # (seq_len, num_feats)
+            feat = feature.to(self.inversion_device)
             if "use_ar" in self.inversion_config["generator_params"] and self.inversion_config["generator_params"]["use_ar"]:
                 pred = ar_loop(self.inversion_model, feat, self.inversion_config, normalize_before=False)
             else:
                 pred = self.inversion_model.inference(feat, normalize_before=False)
-
-            # (L, H)
-            pred = pred[:, 50 : 62] # for ema only
-            #np.save(os.path.join(output_dir, get_fid(p)), pred.cpu().numpy())
-            del feat
-            torch.cuda.empty_cache()
+            #np.save("test.npy", pred.cpu().numpy())
             return pred.cpu().numpy()
-        
     
     def load_config(self, config_dir):
         with open(config_dir) as f:
@@ -148,7 +105,6 @@ class EMAFromMic():
 
     def get_fid(self, file):
         return os.path.basename(file).split(".")[0]
-
 
     def load_model_eval(self, model_dir, device = torch.device("cuda:0"), return_config = False):
         if model_dir[-4:] == ".pkl":
@@ -165,8 +121,8 @@ class EMAFromMic():
             return model, config
         return model
 
-    # Main AAI.
     def hprc_to_ema(self, audio):
+        """wav2ema for Transformer inversion."""
         feat = self.make_wavlm_embeddings(audio)
         with torch.no_grad():
             feat = torch.tensor(feat, dtype=torch.float).to(self.inversion_device)
@@ -176,36 +132,54 @@ class EMAFromMic():
                 pred = self.inversion_model.inference(feat, normalize_before=False)
 
             # (L, H)
-            pred = pred[:, 50 : 62] # for ema only
+            if self.mri:
+                pred = pred[:, -230:]
+            else:
+                pred = pred[:, 50 : 62] # for ema only
             #np.save(os.path.join(output_dir, get_fid(p)), pred.cpu().numpy())
             return pred.cpu().numpy()
 
-
     def make_wavlm_embeddings(self, audio):
-        #mkdir(output_dir)
-        #model_name = 'wavlm_large'
-        #model = getattr(hub, model_name)() 
-        #device = torch.device(f"cuda:0")
-        #model=model.to(device)
-        #layer_num = 9
-
         num_resampled = 0
         num_summed = 0
         wavs = [torch.from_numpy(audio).float().to(self.inversion_device)]
         with torch.no_grad():
             states = self.wavlm_model(wavs)["hidden_states"]
+
+
+            # (L, H)
             feature = states[9].squeeze(0)
             #np.save(os.path.join(output_dir, fid), feature.cpu().numpy())
+            if self.mri:
+                feature_interpolated = torch.nn.functional.interpolate(feature.cpu().unsqueeze(0).transpose(1, 2),
+                                                        int(feature.shape[0] / 50 * (20000 / 240)),
+                                                        mode='linear',
+                                                        align_corners=False )
+                feature_interpolated = feature_interpolated.squeeze(0).transpose(0, 1).numpy()
+                return feature_interpolated
             return feature.cpu().numpy()
 
 if __name__ == "__main__":
-    file, sr = sf.read("mngu0_s1_0001.wav")
-    print(file.shape)
+    parser = argparse.ArgumentParser(description="Invert audio to EMA.")
 
-    mic = MicrophoneStream()
-    print("---------starting-------------")
-    audio = mic.get_next_batch()
-    sf.write("test.wav", audio, 16000)
+    parser.add_argument('--model_dir', dest="model_dir", action="store",
+                        help="Directory of inversion model")
+    parser.add_argument('--wav_name', dest="wav_name", action="store",
+                        help="Base name of input wav file to invert")
+    parser.add_argument('--save_dir', dest="save_dir", action="store",
+                        help="Directory of where to store inverted EMA npy")
 
-    model = EMAFromMic("hprc_no_m1f2_h2emaph_gru_joint_nogan_model")
-    model.wav_to_ema(audio)
+    args = parser.parse_args()
+
+    audio, sr = librosa.load(f"{args.wav_name}.wav", sr=16000)
+    print(f"Loaded {args.wav_name}.wav at sample rate {sr} and shape {audio.shape}.\n")
+
+    model = Wav2EMA(model_dir=args.model_dir, gru=False, mri=False)
+    print("Loaded inversion model.\n")
+
+    ema = model.hprc_to_ema(audio)
+    print("Converted audio to EMA.\n")
+    
+    save_file = f"{args.save_dir}/{args.wav_name}.npy"
+    np.save(save_file, ema)
+    print(f"Saved EMA at {save_file}.")
