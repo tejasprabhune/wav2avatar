@@ -23,7 +23,7 @@ tested).
     pip install -e .
     ```
 
-1. Install `articulatory` from `https://github.com/articulatory/articulatory` and `s3prl` from `https://github.com/s3prl/s3prl`.
+1. Install `articulatory` from `https://github.com/articulatory/articulatory` and `s3prl` from `https://github.com/s3prl/s3prl` (see [s3prl notes](#s3prl--torchaudio)).
 
 ### Offline
 
@@ -106,6 +106,6 @@ for the corresponding `mayapy` installation.
 `s3prl` does not support Windows, but we can work around this by getting
 rid of all the times `s3prl.hub` requires the `sox_io` backend after cloning
 the repo, then locally installing that version instead of from the original
-`pip` library
+`pip` library.
 
 We do a similar thing for `torchaudio` if it throws an error.
