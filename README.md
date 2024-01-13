@@ -23,7 +23,7 @@ tested).
     pip install -e .
     ```
 
-1. Install `articulatory` from `https://github.com/articulatory/articulatory`.
+1. Install `articulatory` from `https://github.com/articulatory/articulatory` and `s3prl` from `https://github.com/s3prl/s3prl`.
 
 ### Offline
 
