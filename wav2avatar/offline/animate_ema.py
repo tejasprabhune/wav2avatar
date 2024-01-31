@@ -1,7 +1,11 @@
-from ..utils.nema_data import NEMAData
-from ..utils.maya_utils import MayaUtils
+import sys
+sys.path.append("C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\utils\\")
+from nema_data import NEMAData
+from maya_utils import MayaUtils
 
-ema_handler = NEMAData("<EMA .NPY FILE PATH>", demean=True, normalize=True)
+ll_path = "C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\language_learning\\"
+
+ema_handler = NEMAData(ll_path + "nature/mlk.npy", demean=True, normalize=True)
 parts = ["tt", "tb", "td", "li", "ul", "ll"]
 
 for part in parts:

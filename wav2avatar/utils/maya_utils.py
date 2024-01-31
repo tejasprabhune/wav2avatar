@@ -22,9 +22,9 @@ class MayaUtils:
         cmds.setKeyframe(part, time=key, attribute="translateZ", value=z)
 
 
-    def animateX(part, keys):
+    def animateX(part, keys, offset=0):
         for key in keys:
-            MayaUtils.keyXTranslate(part, key[0], key[1])
+            MayaUtils.keyXTranslate(part, key[0], key[1] + offset)
 
 
     def animateY(part, keys, offset=0):

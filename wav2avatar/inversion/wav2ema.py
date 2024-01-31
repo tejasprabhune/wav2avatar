@@ -163,23 +163,30 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Invert audio to EMA.")
 
     parser.add_argument('--model_dir', dest="model_dir", action="store",
-                        help="Directory of inversion model")
-    parser.add_argument('--wav_name', dest="wav_name", action="store",
-                        help="Base name of input wav file to invert")
+                        help="Directory of inversion model", 
+                        default="""C:/Users/tejas/Documents/UCBerkeley/bci/SpectrogramSynthesis/hprc_no_m1f2_wlm2tvph_norm_transformer_conv_joint_nogan_v5/""")
+    parser.add_argument('--wav_file', dest="wav_file", action="store",
+                        help="Path of input wav file to invert")
     parser.add_argument('--save_dir', dest="save_dir", action="store",
                         help="Directory of where to store inverted EMA npy")
 
+
     args = parser.parse_args()
 
-    audio, sr = librosa.load(f"{args.wav_name}.wav", sr=16000)
-    print(f"Loaded {args.wav_name}.wav at sample rate {sr} and shape {audio.shape}.\n")
+    args.model_dir = (
+    "C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
+    + "Synthesis/mri_timit_230_wlm2f0_mri_230_pretrain_mri_ema/")
 
-    model = Wav2EMA(model_dir=args.model_dir, gru=False, mri=False)
+    audio, sr = librosa.load(f"{args.wav_file}", sr=16000)
+    wav_name = os.path.basename(args.wav_file)
+    print(f"Loaded {wav_name} at sample rate {sr} and shape {audio.shape}.\n")
+
+    model = Wav2EMA(model_dir=args.model_dir, gru=False, mri=True)
     print("Loaded inversion model.\n")
 
     ema = model.hprc_to_ema(audio)
     print("Converted audio to EMA.\n")
     
-    save_file = f"{args.save_dir}/{args.wav_name}.npy"
+    save_file = f"{args.save_dir}/{wav_name[:-4]}.npy"
     np.save(save_file, ema)
     print(f"Saved EMA at {save_file}.")
