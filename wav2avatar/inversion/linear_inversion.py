@@ -88,8 +88,8 @@ class EMADataset:
 
         if set(self.stems) >= set(ssl_stems):
             print(
-                "SSL feature directory does not match wav/ema directories."
-                / "Saving features..."
+                "SSL feature directory does not match wav/ema directories.",
+                "Saving features..."
             )
             self.save_features()
 
@@ -338,12 +338,12 @@ class LinearInversion:
 
 
 if __name__ == "__main__":
-    # ema_dataset = EMADataset(
-    #    "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
-    #    "hubert",
-    #    train_ratio=1.0,
-    # )
-    lr_model = LinearInversion(ckpt="ckpts/lr_hbb_l10_mng_all.pkl")
-    # lr_model.fit()
-    # lr_model.save("ckpts/lr_hbb_l10_mng_all.pkl")
+    ema_dataset = EMADataset(
+       "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
+       "wavlm_large",
+       train_ratio=1.0,
+    )
+    lr_model = LinearInversion(ema_dataset=ema_dataset)
+    lr_model.fit()
+    lr_model.save("ckpts/lr_hbb_l10_mng_all.pkl")
     np.save("ema/mng_david_pred.npy", lr_model.predict("wav/david_audio.wav"))
