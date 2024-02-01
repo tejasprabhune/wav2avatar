@@ -82,11 +82,11 @@ class EMADataset:
         get_stems = lambda root_dir: [f.stem for f in root_dir.rglob("*")]
         wav_stems = get_stems(self.wav_root)
         ema_stems = get_stems(self.ema_root)
-        ssl_stems = get_stems(self.ssl_root)
+        self.ssl_stems = get_stems(self.ssl_root)
         self.stems = list(set(wav_stems) & set(ema_stems))
         assert len(self.stems) >= 1
 
-        if set(self.stems) >= set(ssl_stems):
+        if set(self.stems) >= set(self.ssl_stems):
             print(
                 "SSL feature directory does not match wav/ema directories.",
                 "Saving features..."
@@ -147,6 +147,8 @@ class EMADataset:
         dataset (/{data_root}/{ssl_feat}/*.npy).
         """
         for stem in tqdm(self.stems):
+            if stem in self.ssl_stems:
+                continue
             audio = EMADataset.load_audio(
                 self.wav_root / f"{stem}.wav", self.sr, self.device
             )
@@ -164,11 +166,14 @@ class EMADataset:
     def load_audio(wav, sr, device):
         """Load audio tensor and resample to appropriate sample rate."""
 
-        audio, sr = torchaudio.load(wav)
+        audio, a_sr = librosa.load(wav, sr=sr)
+        audio = torch.from_numpy(audio)
+        #if audio.shape[0] > 1:
+        #    audio = audio[0]
         audio = audio.to(device).squeeze(0)
-        if sr != sr:
+        if a_sr != sr:
             audio = torchaudio.functional.resample(
-                audio, orig_freq=sr, new_freq=sr
+                audio, orig_freq=a_sr, new_freq=sr
             )
         return audio
 
@@ -253,7 +258,7 @@ class LinearInversion:
     def __init__(
         self,
         ema_dataset=None,
-        ssl_model="hubert",
+        ssl_model="wavlm_large",
         layer=9,
         ckpt="",
         sr=16000,
@@ -276,13 +281,13 @@ class LinearInversion:
             with open(self.ckpt, "rb") as f:
                 self.lr_model = pickle.load(f)
 
-    def fit(self, val_report=False):
+    def fit(self, val_report=True):
         self.lr_model.fit(
             self.ema_dataset.feat_train, self.ema_dataset.ema_train
         )
 
         if val_report:
-            self.val_report()
+            print(self.val_report(avg=True))
 
     def val_report(self, avg=True):
         if len(self.ema_dataset.feat_test) == 0:
@@ -304,27 +309,53 @@ class LinearInversion:
     def get_corr(self, prd, trg, feat_num):
         return scipy.stats.pearsonr(prd[:, feat_num], trg[:, feat_num])
 
+    #def mngu0_to_hprc(self, arr):
+    #    for i in range(0, 12, 2):
+    #        arr[:, i] *= -1
+
+    #    arr_td = arr[:, 0:2]
+    #    arr_tb = arr[:, 2:4]
+    #    arr_tt = arr[:, 4:6]
+    #    arr_li = arr[:, 6:8]
+    #    arr_ul = arr[:, 8:10]
+    #    arr_ll = arr[:, 10:12]
+
+    #    arr[:, 0:2] = arr_li
+    #    arr[:, 2:4] = arr_ul
+    #    arr[:, 4:6] = arr_ll
+    #    arr[:, 6:8] = arr_tt
+    #    arr[:, 8:10] = arr_tb
+    #    arr[:, 10:12] = arr_td
+
     def mngu0_to_hprc(self, arr):
-        for i in range(0, 12, 2):
-            arr[:, i] *= -1
-
         arr_td = arr[:, 0:2]
-        arr_tb = arr[:, 2:4]
-        arr_tt = arr[:, 4:6]
-        arr_li = arr[:, 6:8]
-        arr_ul = arr[:, 8:10]
-        arr_ll = arr[:, 10:12]
 
-        arr[:, 0:2] = arr_li
-        arr[:, 2:4] = arr_ul
-        arr[:, 4:6] = arr_ll
-        arr[:, 6:8] = arr_tt
-        arr[:, 8:10] = arr_tb
-        arr[:, 10:12] = arr_td
+        arr_tb = arr[:, 2:4]
+
+        arr_tt = arr[:, 4:6]
+
+        arr_li = arr[:, 6:8] # locked
+
+        arr_ul = arr[:, 8:10] # locked
+
+        arr_ll = arr[:, 10:12] # locked
+
+        arr[:, 0] = arr_li[:, 0] * -1
+        arr[:, 1] = arr_li[:, 1]
+        arr[:, 2] = arr_ul[:, 0] * -1
+        arr[:, 3] = arr_ul[:, 1]
+        arr[:, 4] = arr_ll[:, 0] * -1
+        arr[:, 5] = arr_ll[:, 1]
+        arr[:, 6] = arr_tt[:, 0] * -1
+        arr[:, 7] = arr_tt[:, 1]
+        arr[:, 8] = arr_tb[:, 0] * -1
+        arr[:, 9] = arr_tb[:, 1]
+        arr[:, 10] = arr_td[:, 0] * -1
+        arr[:, 11] = arr_td[:, 1]
 
     def predict(self, wav: str):
         audio = EMADataset.load_audio(wav, self.sr, self.device)
-        return self.predict_from_tensor(audio)
+        return EMADataset.butter_bandpass_filter(self.predict_from_tensor(audio), 6, 50)
 
     def predict_from_tensor(self, audio: torch.Tensor):
         feat = EMADataset.get_feature(audio, self.ssl_model, self.layer).cpu()
@@ -338,12 +369,21 @@ class LinearInversion:
 
 
 if __name__ == "__main__":
+
+    ssl_model = "wavlm_large"
+    low_pass = 10
     ema_dataset = EMADataset(
        "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
-       "wavlm_large",
+       ssl_model,
        train_ratio=1.0,
+       low_pass=10,
+       ema_sr=200,
+       ssl_sr=50,
     )
-    lr_model = LinearInversion(ema_dataset=ema_dataset)
+    lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model=ssl_model)
+    #lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model="hubert_large_ll60k")
     lr_model.fit()
-    lr_model.save("ckpts/lr_hbb_l10_mng_all.pkl")
-    np.save("ema/mng_david_pred.npy", lr_model.predict("wav/david_audio.wav"))
+    lr_model.save("ckpts/lr_wavlm_l9_mng_all_10hz.pkl")
+    print(lr_model.val_report())
+    wav_pred = lr_model.predict("wav/mlk.wav")
+    np.save("ema/mng_mlk_pred.npy", wav_pred)
