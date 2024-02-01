@@ -55,7 +55,7 @@ class EMADataset:
         model=None,
         layer: int = 9,
         device: int = 0,
-        low_pass: int = 10,
+        low_pass: int = 6,
         train_ratio: float = 0.8,
     ):
         """
@@ -275,6 +275,8 @@ class LinearInversion:
         if self.ckpt.is_file():
             with open(self.ckpt, "rb") as f:
                 self.lr_model = pickle.load(f)
+        else:
+            print("ckpt not found!")
 
     def fit(self, val_report=False):
         self.lr_model.fit(
@@ -324,10 +326,17 @@ class LinearInversion:
 
     def predict(self, wav: str):
         audio = EMADataset.load_audio(wav, self.sr, self.device)
-        return self.predict_from_tensor(audio)
+        return EMADataset.butter_bandpass_filter(self.predict_from_tensor(audio), 6, 50)
 
     def predict_from_tensor(self, audio: torch.Tensor):
         feat = EMADataset.get_feature(audio, self.ssl_model, self.layer).cpu()
+        return self.predict_from_feat(feat)
+    
+    def predict_from_file(self, npy_file):
+        feat = np.load(npy_file)
+        return self.predict_from_feat(feat)
+    
+    def predict_from_feat(self, feat):
         pred_ssl_ema = self.lr_model.predict(feat)
         self.mngu0_to_hprc(pred_ssl_ema)
         return pred_ssl_ema
@@ -338,12 +347,12 @@ class LinearInversion:
 
 
 if __name__ == "__main__":
-    ema_dataset = EMADataset(
-       "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
-       "wavlm_large",
-       train_ratio=1.0,
-    )
-    lr_model = LinearInversion(ema_dataset=ema_dataset)
-    lr_model.fit()
-    lr_model.save("ckpts/lr_hbb_l10_mng_all.pkl")
+    #ema_dataset = EMADataset(
+    #   "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
+    #   "wavlm_large",
+    #   train_ratio=1.0,
+    #)
+    lr_model = LinearInversion(ckpt="ckpts/lr_hbb_l10_mng_all.pkl")
+    #lr_model.fit()
+    #lr_model.save("ckpts/lr_hbb_l10_mng_all.pkl")
     np.save("ema/mng_david_pred.npy", lr_model.predict("wav/david_audio.wav"))
