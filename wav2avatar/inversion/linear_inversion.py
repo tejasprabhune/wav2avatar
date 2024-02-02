@@ -55,7 +55,7 @@ class EMADataset:
         model=None,
         layer: int = 9,
         device: int = 0,
-        low_pass: int = 6,
+        low_pass: int = 10,
         train_ratio: float = 0.8,
     ):
         """
@@ -82,11 +82,11 @@ class EMADataset:
         get_stems = lambda root_dir: [f.stem for f in root_dir.rglob("*")]
         wav_stems = get_stems(self.wav_root)
         ema_stems = get_stems(self.ema_root)
-        ssl_stems = get_stems(self.ssl_root)
+        self.ssl_stems = get_stems(self.ssl_root)
         self.stems = list(set(wav_stems) & set(ema_stems))
         assert len(self.stems) >= 1
 
-        if set(self.stems) >= set(ssl_stems):
+        if set(self.stems) >= set(self.ssl_stems):
             print(
                 "SSL feature directory does not match wav/ema directories.",
                 "Saving features..."
@@ -97,31 +97,28 @@ class EMADataset:
         self.ssl_sr = self.get_npy_sr(self.ssl_root, ssl_sr)
         self.trg_sr = min(self.ema_sr, self.ssl_sr)
 
-        self.emas, self.feats = self.compile_ema_feat()
+        train_len = int(len(self.stems) * train_ratio)
+        print("Total len:", len(self.stems))
+        print("Train_len:", train_len)
+        self.train_stems = self.stems[:train_len]
+        self.test_stems = self.stems[train_len:]
 
-        print(f"Total feats shape: {self.feats.shape}")
-        print(f"Total emas shape: {self.emas.shape}")
+        self.ema_train, self.feat_train = self.compile_ema_feat(self.train_stems)
+        self.ema_test, self.feat_test = self.compile_ema_feat(self.test_stems)
 
-        train_len = int(self.emas.shape[0] * train_ratio)
-        self.feat_train, self.feat_test = (
-            self.feats[0:train_len],
-            self.feats[train_len:],
-        )
-        self.ema_train, self.ema_test = (
-            self.emas[0:train_len],
-            self.emas[train_len:],
-        )
+        print(f"Total feats shape: {self.feat_train.shape[0] + self.feat_test.shape[0]}")
+        print(f"Total emas shape: {self.ema_train.shape[0] + self.ema_test.shape[0]}")
 
         print(f"Train Length: {self.feat_train.shape[0]}")
         print(f"Test Length: {self.feat_test.shape[0]}")
 
-    def compile_ema_feat(self):
+    def compile_ema_feat(self, stems):
         """Gets all ema and SSL feats with a bandpass filter on features."""
         emas = []
         feats = []
 
         print("Compiling all EMA and SSL features...")
-        for stem in tqdm(self.stems):
+        for stem in tqdm(stems):
             ema = np.load(self.ema_root / f"{stem}.npy")
             feat = np.load(self.ssl_root / f"{stem}.npy")
 
@@ -147,6 +144,8 @@ class EMADataset:
         dataset (/{data_root}/{ssl_feat}/*.npy).
         """
         for stem in tqdm(self.stems):
+            if stem in self.ssl_stems:
+                continue
             audio = EMADataset.load_audio(
                 self.wav_root / f"{stem}.wav", self.sr, self.device
             )
@@ -164,11 +163,14 @@ class EMADataset:
     def load_audio(wav, sr, device):
         """Load audio tensor and resample to appropriate sample rate."""
 
-        audio, sr = torchaudio.load(wav)
+        audio, a_sr = librosa.load(wav, sr=sr)
+        audio = torch.from_numpy(audio)
+        #if audio.shape[0] > 1:
+        #    audio = audio[0]
         audio = audio.to(device).squeeze(0)
-        if sr != sr:
+        if a_sr != sr:
             audio = torchaudio.functional.resample(
-                audio, orig_freq=sr, new_freq=sr
+                audio, orig_freq=a_sr, new_freq=sr
             )
         return audio
 
@@ -253,7 +255,7 @@ class LinearInversion:
     def __init__(
         self,
         ema_dataset=None,
-        ssl_model="hubert",
+        ssl_model="wavlm_large",
         layer=9,
         ckpt="",
         sr=16000,
@@ -275,16 +277,14 @@ class LinearInversion:
         if self.ckpt.is_file():
             with open(self.ckpt, "rb") as f:
                 self.lr_model = pickle.load(f)
-        else:
-            print("ckpt not found!")
 
-    def fit(self, val_report=False):
+    def fit(self, val_report=True):
         self.lr_model.fit(
             self.ema_dataset.feat_train, self.ema_dataset.ema_train
         )
 
         if val_report:
-            self.val_report()
+            print(self.val_report(avg=True))
 
     def val_report(self, avg=True):
         if len(self.ema_dataset.feat_test) == 0:
@@ -306,23 +306,49 @@ class LinearInversion:
     def get_corr(self, prd, trg, feat_num):
         return scipy.stats.pearsonr(prd[:, feat_num], trg[:, feat_num])
 
+    #def mngu0_to_hprc(self, arr):
+    #    for i in range(0, 12, 2):
+    #        arr[:, i] *= -1
+
+    #    arr_td = arr[:, 0:2]
+    #    arr_tb = arr[:, 2:4]
+    #    arr_tt = arr[:, 4:6]
+    #    arr_li = arr[:, 6:8]
+    #    arr_ul = arr[:, 8:10]
+    #    arr_ll = arr[:, 10:12]
+
+    #    arr[:, 0:2] = arr_li
+    #    arr[:, 2:4] = arr_ul
+    #    arr[:, 4:6] = arr_ll
+    #    arr[:, 6:8] = arr_tt
+    #    arr[:, 8:10] = arr_tb
+    #    arr[:, 10:12] = arr_td
+
     def mngu0_to_hprc(self, arr):
-        for i in range(0, 12, 2):
-            arr[:, i] *= -1
-
         arr_td = arr[:, 0:2]
-        arr_tb = arr[:, 2:4]
-        arr_tt = arr[:, 4:6]
-        arr_li = arr[:, 6:8]
-        arr_ul = arr[:, 8:10]
-        arr_ll = arr[:, 10:12]
 
-        arr[:, 0:2] = arr_li
-        arr[:, 2:4] = arr_ul
-        arr[:, 4:6] = arr_ll
-        arr[:, 6:8] = arr_tt
-        arr[:, 8:10] = arr_tb
-        arr[:, 10:12] = arr_td
+        arr_tb = arr[:, 2:4]
+
+        arr_tt = arr[:, 4:6]
+
+        arr_li = arr[:, 6:8] # locked
+
+        arr_ul = arr[:, 8:10] # locked
+
+        arr_ll = arr[:, 10:12] # locked
+
+        arr[:, 0] = arr_li[:, 0] * -1
+        arr[:, 1] = arr_li[:, 1]
+        arr[:, 2] = arr_ul[:, 0] * -1
+        arr[:, 3] = arr_ul[:, 1]
+        arr[:, 4] = arr_ll[:, 0] * -1
+        arr[:, 5] = arr_ll[:, 1]
+        arr[:, 6] = arr_tt[:, 0] * -1
+        arr[:, 7] = arr_tt[:, 1]
+        arr[:, 8] = arr_tb[:, 0] * -1
+        arr[:, 9] = arr_tb[:, 1]
+        arr[:, 10] = arr_td[:, 0] * -1
+        arr[:, 11] = arr_td[:, 1]
 
     def predict(self, wav: str):
         audio = EMADataset.load_audio(wav, self.sr, self.device)
@@ -330,16 +356,9 @@ class LinearInversion:
 
     def predict_from_tensor(self, audio: torch.Tensor):
         feat = EMADataset.get_feature(audio, self.ssl_model, self.layer).cpu()
-        return self.predict_from_feat(feat)
-    
-    def predict_from_file(self, npy_file):
-        feat = np.load(npy_file)
-        return self.predict_from_feat(feat)
-    
-    def predict_from_feat(self, feat):
         pred_ssl_ema = self.lr_model.predict(feat)
         self.mngu0_to_hprc(pred_ssl_ema)
-        return EMADataset.butter_bandpass_filter(pred_ssl_ema, 10, 50)
+        return pred_ssl_ema
 
     def save(self, file):
         with open(file, "wb") as f:
@@ -347,12 +366,30 @@ class LinearInversion:
 
 
 if __name__ == "__main__":
+
+    ssl_model = "wavlm_large"
+    #low_pass = 10
     #ema_dataset = EMADataset(
     #   "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
-    #   "wavlm_large",
-    #   train_ratio=1.0,
+    #   ssl_model,
+    #   train_ratio=0.9,
+    #   low_pass=low_pass,
+    #   ema_sr=200,
+    #   ssl_sr=50,
     #)
-    lr_model = LinearInversion(ckpt="ckpts/lr_hbb_l10_mng_all.pkl")
-    #lr_model.fit()
-    #lr_model.save("ckpts/lr_hbb_l10_mng_all.pkl")
-    np.save("ema/mng_david_pred.npy", lr_model.predict("wav/david_audio.wav"))
+
+    #with open("C:/Users/tejas/Documents/UCBerkeley/bci/mngu0/split/train.txt", "w") as f:
+    #    for stem in ema_dataset.train_stems:
+    #        f.write(f"{stem}\n")
+    #with open("C:/Users/tejas/Documents/UCBerkeley/bci/mngu0/split/test.txt", "w") as f:
+    #    for stem in ema_dataset.test_stems:
+    #        f.write(f"{stem}\n")
+
+    #lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model=ssl_model)
+    #lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model="hubert_large_ll60k")
+    #lr_model.fit(val_report=True)
+    #lr_model.save("ckpts/lr_wavlm_l9_mng_90_10hz.pkl")
+    #print(lr_model.val_report())
+    lr_model = LinearInversion(ckpt="ckpts/lr_wavlm_l9_mng_90_10hz.pkl", ssl_model=ssl_model)
+    wav_pred = lr_model.predict("wav/spanish_audio.wav")
+    np.save("ema/mng_spanish_pred.npy", wav_pred)
