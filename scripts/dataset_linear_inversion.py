@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 print(os.getcwd())
-lr_model = wali.LinearInversion(ckpt="../wav2avatar/inversion/ckpts/lr_wlm_l9_mng_all.pkl")
+lr_model = wali.LinearInversion(ckpt="../wav2avatar/inversion/ckpts/lr_wlm_l9_mng_all_10hz.pkl", ssl_model="wavlm_large")
 
 vctk_root = pathlib.Path("/data/all_data/VCTK/")
 
