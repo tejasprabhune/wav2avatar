@@ -33,7 +33,7 @@ tested).
     python wav2ema.py --model_dir <MODEL_DIR> --wav_name <WAV_NAME> --save_dir <SAVE_DIR>
     ```
 
-    If you do not have a Transformer/BiGRU checkpoint for inversion, you can run `inversion/linear_inversion.py` with `ckpts/lr_wlm_l9_mng_all_10hz.pkl`
+    If you do not have a Transformer/BiGRU checkpoint for inversion, you can run `inversion/linear_inversion.py` with `ckpts/lr_wlm_l9_mng_90_10hz.pkl`
     as the checkpoint and put your `.wav` file within the `.predict` function call.
 
 1. Open `maya_models/full_face_ema.py` in Maya 2022/2023.
