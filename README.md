@@ -50,7 +50,7 @@ tested).
 
 1. Set the current key to 0 and click the Play icon to the right of the timeline. You should simultaneously hear your audio and see the avatar animate.
 
-    There is a high chance that the avatar looks very warped. This is an ongoing issue with inferring the resting position of the avatar during inversion for unseen speakers. To fix this, you may have to manually change the offset values at the bottom of
+    There is a high chance that the avatar looks very warped if you are using a multi-speaker BiGRU or Transformer inversion model. This is an ongoing issue with inferring the resting position of the avatar during inversion for unseen speakers (solved by linear inversion). To fix this, you may have to manually change the offset values at the bottom of
     `offline/animate_ema.py` in the Script Editor. For example, if the original file animates the `ll` in this way:
 
     ```
