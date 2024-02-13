@@ -173,15 +173,15 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    args.model_dir = (
-    "C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
-    + "Synthesis/mri_timit_230_wlm2f0_mri_230_pretrain_mri_ema/")
+    #args.model_dir = (
+    #"C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
+    #+ "Synthesis/mri_timit_230_wlm2f0_mri_230_pretrain_mri_ema/")
 
     audio, sr = librosa.load(f"{args.wav_file}", sr=16000)
     wav_name = os.path.basename(args.wav_file)
     print(f"Loaded {wav_name} at sample rate {sr} and shape {audio.shape}.\n")
 
-    model = Wav2EMA(model_dir=args.model_dir, gru=False, mri=True)
+    model = Wav2EMA(model_dir=args.model_dir, gru=False, mri=False)
     print("Loaded inversion model.\n")
 
     ema = model.hprc_to_ema(audio)

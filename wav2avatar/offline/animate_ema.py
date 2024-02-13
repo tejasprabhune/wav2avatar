@@ -6,7 +6,7 @@ from maya_utils import MayaUtils
 ll_path = "C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\language_learning\\"
 wa_path = "C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\"
 
-ema_handler = NEMAData(wa_path + "mng_mlk_pred.npy", demean=True, normalize=True)
+ema_handler = NEMAData(wa_path + "mng_rumble_pred.npy", demean=True, normalize=True)
 parts = ["tt", "tb", "td", "li", "ul", "ll"]
 
 for part in parts:
@@ -27,7 +27,7 @@ MayaUtils.animateZ("ul", ema_handler.maya_data["ul"], 3)
 MayaUtils.animateY("ul", ema_handler.maya_data["ul"], -2)
 MayaUtils.animateZ("upper_teeth_joint", ema_handler.maya_data["ul"], -34)
 MayaUtils.animateXYZ("head_li", ema_handler.maya_data["li"], -3)
-MayaUtils.animateZ("li", ema_handler.maya_data["li"], 3)
+MayaUtils.animateZ("li", ema_handler.maya_data["li"], 4)
 #MayaUtils.animateY("head_li", ema_handler.maya_data["li"], -7)
 MayaUtils.animateY("ll", ema_handler.maya_data["ll"], -4)
 
