@@ -173,9 +173,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    args.model_dir = (
-    "C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
-    + "Synthesis/mri_timit_230_wlm2f0_mri_230_pretrain_mri_ema/")
+    #args.model_dir = (
+    #"C:/Users/tejas/Documents/UCBerkeley/bci/Spectrogram"
+    #+ "Synthesis/mri_timit_230_wlm2f0_mri_230_pretrain_mri_ema/")
 
     audio, sr = librosa.load(f"{args.wav_file}", sr=16000)
     wav_name = os.path.basename(args.wav_file)

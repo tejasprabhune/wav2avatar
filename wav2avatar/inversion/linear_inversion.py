@@ -360,6 +360,15 @@ class LinearInversion:
         self.mngu0_to_hprc(pred_ssl_ema)
         return pred_ssl_ema
 
+    def predict_from_file(self, npy_file):
+        feat = np.load(npy_file)
+        return self.predict_from_feat(feat)
+
+    def predict_from_feat(self, feat):
+        pred_ssl_ema = self.lr_model.predict(feat)
+        self.mngu0_to_hprc(pred_ssl_ema)
+        return pred_ssl_ema
+
     def save(self, file):
         with open(file, "wb") as f:
             pickle.dump(self.lr_model, f)
@@ -390,6 +399,6 @@ if __name__ == "__main__":
     #lr_model.fit(val_report=True)
     #lr_model.save("ckpts/lr_wavlm_l9_mng_90_10hz.pkl")
     #print(lr_model.val_report())
-    lr_model = LinearInversion(ckpt="ckpts/lr_wavlm_l9_mng_90_10hz.pkl", ssl_model=ssl_model)
-    wav_pred = lr_model.predict("wav/spanish_audio.wav")
-    np.save("ema/mng_spanish_pred.npy", wav_pred)
+    lr_model = LinearInversion(ckpt="ckpts/lr_wlm_l9_mng_90_10hz.pkl", ssl_model=ssl_model)
+    wav_pred = lr_model.predict("wav/rumble.wav")
+    np.save("ema/mng_rumble_pred.npy", wav_pred)
