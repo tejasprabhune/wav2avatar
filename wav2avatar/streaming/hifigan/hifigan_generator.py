@@ -12,13 +12,13 @@ class HiFiGANGenerator(torch.nn.Module):
         in_channels=512,
         out_channels=1,
         channels=512,
-        kernel_size=7,
-        upsample_scales=(2, 4),
-        upsample_kernel_sizes=(16, 16),
+        kernel_size=3,
+        upsample_scales=(2,),
+        upsample_kernel_sizes=(2,),
         paddings=None,
         output_paddings=None,
-        resblock_kernel_sizes=(3, 7, 11),
-        resblock_dilations=[(1, 3, 5), (1, 3, 5), (1, 3, 5)],
+        resblock_kernel_sizes=(3, 7, 11, 15),
+        resblock_dilations=[(1, 3, 5), (1, 3, 5), (1, 3, 5), (1, 3, 5)],
         use_additional_convs=True,
         bias=True,
         nonlinear_activation="LeakyReLU",
@@ -27,20 +27,52 @@ class HiFiGANGenerator(torch.nn.Module):
         ar_input=600, 
         ar_hidden=256, 
         ar_output=128,
-        use_tanh=True,
+        use_tanh=False,
+        use_mlp_ar=True
     ):
         super().__init__()
+
+        self.use_mlp_ar = use_mlp_ar
 
         paddings = [upsample_scales[i] // 2 + upsample_scales[i] % 2 for i in range(len(upsample_kernel_sizes))]
         output_paddings = [upsample_scales[i] % 2 for i in range(len(upsample_kernel_sizes))]
 
-        self.ar_model = layers.PastFCEncoder(input_len=ar_input, hidden_dim=ar_hidden, output_dim=ar_output)
+        if use_mlp_ar:
+            self.ar_model = layers.PastFCEncoder(input_len=ar_input, hidden_dim=ar_hidden, output_dim=ar_output)
+        else:
+            self.ar_conv = torch.nn.Sequential(
+                torch.nn.LeakyReLU(),
+                torch.nn.Conv1d(
+                    12,
+                    128,
+                    3,
+                    1,
+                    padding=1
+                ),
+                torch.nn.Conv1d(
+                    128,
+                    128,
+                    3,
+                    7,
+                    padding=1
+                ),
+                torch.nn.Conv1d(
+                    128,
+                    128,
+                    3,
+                    7,
+                    padding=1
+                ),
+            )
+            #self.ar_linear = torch.nn.Linear(6400, 128)
+            #self.ar_linear = torch.nn.Linear(1280, 128)
+            self.ar_linear = torch.nn.Linear(256, 128)
 
         self.num_upsamples = len(upsample_kernel_sizes)
         self.num_blocks = len(resblock_kernel_sizes)
         self.input_conv = torch.nn.Conv1d(
             in_channels + ar_output,
-            channels,
+            channels // 2,
             kernel_size,
             1,
             padding=(kernel_size - 1) // 2,
@@ -86,7 +118,7 @@ class HiFiGANGenerator(torch.nn.Module):
                     channels // (2 ** (i + 1)),
                     out_channels,
                     kernel_size,
-                    8,
+                    1,
                     padding=(kernel_size - 1) // 2,
                 ),
                 torch.nn.Tanh(),
@@ -118,22 +150,28 @@ class HiFiGANGenerator(torch.nn.Module):
 
         #print("x shape:", x.shape) # B, C, seqlen
 
-        ar_feats = self.ar_model(ar) # B, 128
-        ar_feats = ar_feats.unsqueeze(2).repeat(1, 1, x.shape[2]) # B, 128, seqlen
+        if self.use_mlp_ar:
+            ar_feats = self.ar_model(ar) # B, 128
+        else:
+            ar_feats = self.ar_conv(ar)
+            ar_feats = ar_feats.reshape(ar.shape[0], -1)
+            ar_feats = self.ar_linear(ar_feats)
+        ar_feats = ar_feats.unsqueeze(2).repeat(1, 1, x.shape[2])
 
         x = torch.cat((x, ar_feats), dim=1) # B, 640, seqlen
-        print(x.shape)
+        # print(x.shape)
 
         x = self.input_conv(x) # B, 512, seqlen
-        print(x.shape)
+        #print("inputconv:", x.shape)
 
         for i in range(self.num_upsamples):
-            x = self.upsamples[i](x)
+            #x = self.upsamples[i](x)
+            #print(x.shape)
 
             cs = 0.0  # initialize
             for j in range(self.num_blocks):
                 cs += self.blocks[i * self.num_blocks + j](x)
-            print('cs', cs.shape)
+            # print('cs', cs.shape)
             x = cs / self.num_blocks  # (batch_size, some_channels, length)
         
         out = self.output_conv(x)

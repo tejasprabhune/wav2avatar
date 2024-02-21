@@ -441,7 +441,7 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(torch.nn.Module):
             "padding": 2,
         },
         scale_discriminator_params={
-            "in_channels": 1,
+            "in_channels": 12,
             "out_channels": 1,
             "kernel_sizes": [15, 41, 5, 3],
             "channels": 128,
@@ -456,7 +456,7 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(torch.nn.Module):
         # Multi-period discriminator related
         periods=[2, 3, 5, 7, 11],
         period_discriminator_params={
-            "in_channels": 1,
+            "in_channels": 12,
             "out_channels": 1,
             "kernel_sizes": [5, 3],
             "channels": 32,
