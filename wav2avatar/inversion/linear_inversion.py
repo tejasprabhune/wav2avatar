@@ -125,9 +125,9 @@ class EMADataset:
             ema, feat = self.match_ema_feat(ema, feat)
             min_len = min(len(ema), len(feat))
             ema = ema[:min_len]
-            feat = EMADataset.butter_bandpass_filter(
-                feat, self.low_pass, self.ssl_sr
-            )
+            #feat = EMADataset.butter_bandpass_filter(
+            #    feat, self.low_pass, self.ssl_sr
+            #)
             feat = feat[:min_len]
 
             emas.append(ema)
@@ -349,6 +349,27 @@ class LinearInversion:
         arr[:, 9] = arr_tb[:, 1]
         arr[:, 10] = arr_td[:, 0] * -1
         arr[:, 11] = arr_td[:, 1]
+    
+    def hprc_to_mngu0(self, arr):
+        arr_li = arr[:, 0:2]
+        arr_ul = arr[:, 2:4]
+        arr_ll = arr[:, 4:6]
+        arr_tt = arr[:, 6:8]
+        arr_tb = arr[:, 8:10]
+        arr_td = arr[:, 10:12]
+
+        arr[:, 0] = arr_td[:, 0] * -1
+        arr[:, 1] = arr_td[:, 1]
+        arr[:, 2] = arr_tb[:, 0] * -1
+        arr[:, 3] = arr_tb[:, 1]
+        arr[:, 4] = arr_tt[:, 0] * -1
+        arr[:, 5] = arr_tt[:, 1]
+        arr[:, 6] = arr_li[:, 0] * -1
+        arr[:, 7] = arr_li[:, 1]
+        arr[:, 8] = arr_ul[:, 0] * -1
+        arr[:, 9] = arr_ul[:, 1]
+        arr[:, 10] = arr_ll[:, 0] * -1
+        arr[:, 11] = arr_ll[:, 1]
 
     def predict(self, wav: str):
         audio = EMADataset.load_audio(wav, self.sr, self.device)
@@ -377,15 +398,15 @@ class LinearInversion:
 if __name__ == "__main__":
 
     ssl_model = "wavlm_large"
-    #low_pass = 10
-    #ema_dataset = EMADataset(
-    #   "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
-    #   ssl_model,
-    #   train_ratio=0.9,
-    #   low_pass=low_pass,
-    #   ema_sr=200,
-    #   ssl_sr=50,
-    #)
+    low_pass = 10
+    ema_dataset = EMADataset(
+       "C:/Users/tejas/Documents/UCBerkeley/bci/mngu0",
+       ssl_model,
+       train_ratio=0.9,
+       low_pass=low_pass,
+       ema_sr=200,
+       ssl_sr=50,
+    )
 
     #with open("C:/Users/tejas/Documents/UCBerkeley/bci/mngu0/split/train.txt", "w") as f:
     #    for stem in ema_dataset.train_stems:
@@ -394,11 +415,11 @@ if __name__ == "__main__":
     #    for stem in ema_dataset.test_stems:
     #        f.write(f"{stem}\n")
 
-    #lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model=ssl_model)
+    lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model=ssl_model)
     #lr_model = LinearInversion(ema_dataset=ema_dataset, ssl_model="hubert_large_ll60k")
-    #lr_model.fit(val_report=True)
-    #lr_model.save("ckpts/lr_wavlm_l9_mng_90_10hz.pkl")
+    lr_model.fit(val_report=True)
+    lr_model.save("ckpts/lr_wavlm_l9_mng_90_nolp.pkl")
     #print(lr_model.val_report())
-    lr_model = LinearInversion(ckpt="ckpts/lr_wlm_l9_mng_90_10hz.pkl", ssl_model=ssl_model)
-    wav_pred = lr_model.predict("wav/rumble.wav")
-    np.save("ema/mng_rumble_pred.npy", wav_pred)
+    #lr_model = LinearInversion(ckpt="ckpts/lr_wlm_l9_mng_90_10hz.pkl", ssl_model=ssl_model)
+    #wav_pred = lr_model.predict("wav/rumble.wav")
+    #np.save("ema/mng_rumble_pred.npy", wav_pred)

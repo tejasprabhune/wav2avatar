@@ -40,6 +40,8 @@ class NEMAData:
             #td_maya = -9.525
             tt_maya = 7.778
             td_maya = -11.44
+            #tt_maya = 6.805
+            #td_maya = 1.928
 
             self.renormalize_to_tongue(tt_mean, td_mean, tt_maya, td_maya)
 

@@ -1,0 +1,130 @@
+from flask import Flask, render_template, Response, request, jsonify, stream_with_context
+from aiortc import RTCPeerConnection, RTCSessionDescription
+
+import torch
+import s3prl.hub
+import emformer
+import nema_data
+
+import cv2
+import json
+import uuid
+import asyncio
+import logging
+import time
+import queue
+
+import sounddevice as sd
+
+app = Flask(__name__, static_url_path='/static')
+
+
+async def offer_async():
+    params = await request.json
+    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+
+    # Create an RTCPeerConnection instance
+    pc = RTCPeerConnection()
+
+    # Generate a unique ID for the RTCPeerConnection
+    pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    pc_id = pc_id[:8]
+
+    # Create and set the local description
+    await pc.createOffer(offer)
+    await pc.setLocalDescription(offer)
+
+    # Prepare the response data with local SDP and type
+    response_data = {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+
+    return jsonify(response_data)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+def offer():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    future = asyncio.run_coroutine_threadsafe(offer_async(), loop)
+    return future.result()
+
+def generate_frames(feature_model, emformer_model):
+    q_in = queue.Queue()
+
+    def callback(indata, frame_count, time_info, status):
+        q_in.put(indata)
+        #print(indata.shape)
+
+    stream = sd.InputStream(samplerate=16000, callback=callback, channels=1, blocksize=1800)
+    state = None
+    with stream:
+        while True:
+            indata = q_in.get()
+
+            audio = torch.from_numpy(indata[:, 0])
+            if (emformer_model.is_speech(audio[:1600].numpy(), 16000)):
+                audio = torch.reshape(audio, (1, -1))
+                #print(audio.shape)
+                audio_feat = feature_model(audio)
+                pred, state = emformer_model.predict_ema(audio_feat, state)
+                print(state[0][1].mean())
+                pred = pred.detach().cpu().numpy()
+
+                fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=True, normalize=True)
+                # print(fmt_pred.get_json())
+
+                yield json.dumps(fmt_pred.get_json()) + "\n"
+
+def get_feature_model():
+    print("--- Getting WavLM feature extractor ---")
+
+    feature_model = getattr(s3prl.hub, "wavlm_large")()
+    feature_model = feature_model.model.feature_extractor
+
+    print("--- Loaded WavLM feature extractor ---")
+
+    return feature_model
+
+def get_emformer_model():
+    print("--- Getting pretrained Emformer ---")
+
+    input_dim=512
+    num_heads=16
+    ffn_dim=512
+    num_layers=15
+    segment_length=5
+    left_context_length=45
+
+    emformer_model = emformer.EMAEmformer(
+        input_dim=input_dim,
+        num_heads=num_heads,
+        ffn_dim=ffn_dim,
+        num_layers=num_layers,
+        segment_length=segment_length,
+        left_context_length=left_context_length
+    )
+
+    ckpt = torch.load(f"ckpts/emf_l{left_context_length}_r0_p{segment_length}_nh{num_heads}__nl{num_layers}_ffd{ffn_dim}_0.83.pth", map_location="cuda:0")
+
+    emformer_model.load_state_dict(ckpt["emformer_state_dict"])
+
+    print("--- Loaded pretrained Emformer ---")
+
+    return emformer_model
+
+# Route to handle the offer request
+@app.route('/offer', methods=['POST'])
+def offer_route():
+    return offer()
+
+@app.route('/audio_feed')
+def audio_feed():
+    feature_model = get_feature_model()
+    emformer_model = get_emformer_model()
+
+    return Response(generate_frames(feature_model, emformer_model))
+
+if __name__ == "__main__":
+    app.run(debug=True, host='0.0.0.0')

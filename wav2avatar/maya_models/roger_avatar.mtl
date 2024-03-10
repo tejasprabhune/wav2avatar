@@ -1,0 +1,54 @@
+newmtl CC_Base_EyeSG3
+illum 4
+Kd 0.00 0.00 0.00
+Ka 0.20 0.20 0.20
+Tf 0.80 0.80 0.80
+Ni 1.00
+Ks 0.00 0.00 0.00
+Ns 9.00
+newmtl CC_Base_TeethSG1
+illum 4
+Kd 0.00 0.00 0.00
+Ka 0.49 0.49 0.49
+Tf 1.00 1.00 1.00
+Ni 1.00
+Ks 0.00 0.00 0.00
+Ns 0.00
+newmtl lambert2SG
+illum 4
+Kd 0.63 0.43 0.29
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl lambert3SG
+illum 4
+Kd 0.02 0.02 0.02
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl lambert4SG
+illum 4
+Kd 0.82 0.56 0.56
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl lambert5SG
+illum 4
+Kd 0.00 0.00 0.00
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl lambert6SG
+illum 4
+Kd 0.07 0.05 0.02
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl pasted__CC_Base_TeethSG
+illum 4
+Kd 0.00 0.00 0.00
+Ka 0.49 0.49 0.49
+Tf 1.00 1.00 1.00
+Ni 1.00
+Ks 0.00 0.00 0.00
+Ns 0.00
