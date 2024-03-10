@@ -379,8 +379,8 @@ class LinearInversion:
     def predict_from_tensor(self, audio: torch.Tensor):
         feat = EMADataset.get_feature(audio, self.ssl_model, self.layer).cpu()
         pred_ssl_ema = self.lr_model.predict(feat)
-        self.mngu0_to_hprc(pred_ssl_ema)
-        return pred_ssl_ema
+        #self.mngu0_to_hprc(pred_ssl_ema)
+        return EMADataset.butter_bandpass_filter(pred_ssl_ema, 10, 50)
 
     def predict_from_file(self, npy_file):
         feat = np.load(npy_file)

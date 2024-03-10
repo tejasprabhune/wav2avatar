@@ -25,12 +25,12 @@ class Wav2EMA():
     3. Transformer MRI inversion implementation by Prabhune et al. (Bohan Yu)
     (https://speech-avatar.github.io/multimodal-mri-avatar/)
     """
-    def __init__(self, model_dir="hprc_no_m1f2_h2emaph_gru_join_nogan_model", gru=True, mri=False):
+    def __init__(self, model_dir="hprc_no_m1f2_h2emaph_gru_join_nogan_model", gru=True, mri=False, device=0):
         self.mri = mri
         if gru:
             self.input_modality = 'hubert'
 
-            self.hubert_device = 0
+            self.hubert_device = device
             self.model_name = 'hubert_large_ll60k'
             self.hubert_model = getattr(hub, self.model_name)()
             self.hubert_device = 'cuda:%d' % self.hubert_device
@@ -55,7 +55,7 @@ class Wav2EMA():
             self.inversion_model.remove_weight_norm()
             self.inversion_model = self.inversion_model.eval().to(self.inversion_device)
         else:
-            self.wavlm_device = 0
+            self.wavlm_device = device
             self.model_name = 'wavlm_large'
             self.wavlm_model = getattr(hub, self.model_name)()
             self.wavlm_device = 'cuda:%d' % self.wavlm_device
@@ -65,7 +65,7 @@ class Wav2EMA():
             self.inversion_config_path = f"{model_dir}/config.yml"
 
             if torch.cuda.is_available():
-                self.inversion_device = torch.device("cuda:0")
+                self.inversion_device = torch.device(f"cuda:{device}")
                 print("--- using cuda ---")
             else:
                 self.inversion_device = torch.device("cpu")
@@ -80,7 +80,7 @@ class Wav2EMA():
 
     def wav_to_ema(self, audio):
         with torch.no_grad():
-            wavs = [torch.from_numpy(audio).float().to(self.hubert_device)]
+            wavs = [torch.tensor(audio).float().to(self.hubert_device)]
             states = self.hubert_model(wavs)["hidden_states"]
             feature = states[-1].squeeze(0)
             target_length = len(feature) * self.interp_factor
