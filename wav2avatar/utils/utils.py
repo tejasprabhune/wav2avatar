@@ -70,6 +70,8 @@ class Utils:
         return len(speech_segments) >= 9
     
     def mngu0_to_hprc(arr):
+        hprc_arr = np.zeros(arr.shape)
+
         arr_td = arr[:, 0:2]
     
         arr_tb = arr[:, 2:4]
@@ -82,15 +84,17 @@ class Utils:
     
         arr_ll = arr[:, 10:12] # locked
     
-        arr[:, 0] = arr_li[:, 0] * -1
-        arr[:, 1] = arr_li[:, 1]
-        arr[:, 2] = arr_ul[:, 0] * -1
-        arr[:, 3] = arr_ul[:, 1]
-        arr[:, 4] = arr_ll[:, 0] * -1
-        arr[:, 5] = arr_ll[:, 1]
-        arr[:, 6] = arr_tt[:, 0] * -1
-        arr[:, 7] = arr_tt[:, 1]
-        arr[:, 8] = arr_tb[:, 0] * -1
-        arr[:, 9] = arr_tb[:, 1]
-        arr[:, 10] = arr_td[:, 0] * -1
-        arr[:, 11] = arr_td[:, 1]
+        hprc_arr[:, 0] = arr_li[:, 0] * -1
+        hprc_arr[:, 1] = arr_li[:, 1]
+        hprc_arr[:, 2] = arr_ul[:, 0] * -1
+        hprc_arr[:, 3] = arr_ul[:, 1]
+        hprc_arr[:, 4] = arr_ll[:, 0] * -1
+        hprc_arr[:, 5] = arr_ll[:, 1]
+        hprc_arr[:, 6] = arr_tt[:, 0] * -1
+        hprc_arr[:, 7] = arr_tt[:, 1]
+        hprc_arr[:, 8] = arr_tb[:, 0] * -1
+        hprc_arr[:, 9] = arr_tb[:, 1]
+        hprc_arr[:, 10] = arr_td[:, 0] * -1
+        hprc_arr[:, 11] = arr_td[:, 1]
+
+        return hprc_arr
