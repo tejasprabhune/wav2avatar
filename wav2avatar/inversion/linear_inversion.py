@@ -247,7 +247,8 @@ class EMADataset:
 
     def butter_bandpass_filter(data, cut, fs, order=5):
         b, a = EMADataset.butter_bandpass(cut, fs, order=order)
-        y = scipy.signal.filtfilt(b, a, data, axis=0)
+        #print(b, a)
+        y = scipy.signal.filtfilt(b, a, data, padlen=len(data) - 1, axis=0)
         return y
 
 
