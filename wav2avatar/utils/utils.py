@@ -68,3 +68,29 @@ class Utils:
             ):
                 speech_segments.append(audio[i : i + sr // 100])
         return len(speech_segments) >= 9
+    
+    def mngu0_to_hprc(arr):
+        arr_td = arr[:, 0:2]
+    
+        arr_tb = arr[:, 2:4]
+    
+        arr_tt = arr[:, 4:6]
+    
+        arr_li = arr[:, 6:8] # locked
+    
+        arr_ul = arr[:, 8:10] # locked
+    
+        arr_ll = arr[:, 10:12] # locked
+    
+        arr[:, 0] = arr_li[:, 0] * -1
+        arr[:, 1] = arr_li[:, 1]
+        arr[:, 2] = arr_ul[:, 0] * -1
+        arr[:, 3] = arr_ul[:, 1]
+        arr[:, 4] = arr_ll[:, 0] * -1
+        arr[:, 5] = arr_ll[:, 1]
+        arr[:, 6] = arr_tt[:, 0] * -1
+        arr[:, 7] = arr_tt[:, 1]
+        arr[:, 8] = arr_tb[:, 0] * -1
+        arr[:, 9] = arr_tb[:, 1]
+        arr[:, 10] = arr_td[:, 0] * -1
+        arr[:, 11] = arr_td[:, 1]
