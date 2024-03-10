@@ -11,35 +11,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from wav2avatar.streaming.hifigan.wav_ema_dataset import WavEMADataset
-from wav2avatar.streaming.hifigan.hifigan_discriminators import HiFiGANMultiScaleMultiPeriodDiscriminator
 from wav2avatar.streaming.hifigan.hifigan_generator import HiFiGANGenerator
 import wav2avatar.streaming.hifigan.collate as wav_ema_collate
-
-from wav2avatar.streaming.hifigan.losses import GeneratorAdversarialLoss, DiscriminatorAdversarialLoss, FeatureMatchLoss
 
 torch.manual_seed(0)
 
 device = 0
-disc = HiFiGANMultiScaleMultiPeriodDiscriminator().to(device)
-gen = HiFiGANGenerator(
-    in_channels=512, 
-    out_channels=12, 
-    ar_input=600, 
-    use_tanh=False,
-    use_mlp_ar=False,
-    resblock_kernel_sizes=(3, 7, 11, 15, 19),
-    resblock_dilations=[(1, 3, 5), (1, 3, 5), (1, 3, 5), (1, 3, 5), (1, 3, 5)],
-                       ).to(device)
-
-disc_optimizer = torch.optim.Adam(disc.parameters(), lr=1e-4, betas=[0.5, 0.9], weight_decay=0.0)
-disc_scheduler = torch.optim.lr_scheduler.MultiStepLR(disc_optimizer, gamma=0.5, milestones=[40000, 80000, 120000, 160000])
+gen = HiFiGANGenerator().to(device)
 
 gen_optimizer = torch.optim.Adam(gen.parameters(), lr=1e-4, betas=[0.5, 0.9], weight_decay=0.0)
 gen_scheduler = torch.optim.lr_scheduler.MultiStepLR(gen_optimizer, gamma=0.5, milestones=[40000, 80000, 120000, 160000])
-
-disc_adv_loss = DiscriminatorAdversarialLoss()
-gen_adv_loss = GeneratorAdversarialLoss()
-feat_match_loss = FeatureMatchLoss()
 
 dataset = WavEMADataset()
 train_amt = int(len(dataset) * 0.9)
@@ -61,47 +42,15 @@ feature_model = feature_model.model.feature_extractor.to(device)
 
 window_size = 50
 
-def train_disc_step(batch):
-    x = batch[0].to(device)
-    y = batch[1].to(device)
-    ar = batch[2].to(device)
-    #print(f"Loaded batch with shapes x: {x.shape}, y: {y.shape}, ar: {ar.shape}")
-
-    # (3) Get predictions
-    with torch.no_grad():
-        y_hat = gen(x, ar)
-    p = disc(y)
-    p_hat = disc(y_hat)
-
-    # (4) Calculate loss
-    real_loss, fake_loss = disc_adv_loss(p_hat, p)
-    disc_loss = real_loss + fake_loss
-    #print(f"Discriminator loss: {disc_loss}")
-
-    # (5) Backprop
-    disc_optimizer.zero_grad()
-    disc_loss.backward()
-    disc_optimizer.step()
-    disc_scheduler.step()
-
-    return disc_loss
-
 def train_gen_step(batch):
     x = batch[0].to(device)
     y = batch[1].to(device)
     ar = batch[2].to(device)
 
     y_hat = gen(x, ar)
-    #p_hat = disc(y_hat)
-    #p = disc(y)
 
-    #adv_loss = gen_adv_loss(p_hat)
+    ema_loss = F.l1_loss(y_hat, y[:, :, -5:])
 
-    #feat_loss = feat_match_loss(p_hat, p)
-
-    ema_loss = F.l1_loss(y_hat[:, :, :window_size], y)
-
-    #gen_loss = adv_loss + 2 * feat_loss + 45 * ema_loss
     gen_loss = ema_loss
 
     gen_optimizer.zero_grad()
@@ -116,28 +65,41 @@ def unroll_collated(features):
 
 @torch.no_grad()
 def eval_gen(batch):
-    x = batch[0].to(device)
-    y = batch[1].to(device)
-    y_unrolled = unroll_collated(y)
+    # Collated features from batch
+    clt_audio = batch[0].to(device)
+    clt_ema = batch[1].to(device)
 
-    ar = torch.zeros((1, 12, window_size)).to(device)
-    pred = []
-    for audio_feat in x:
-        #print(audio_feat.shape, ar.shape)
-        pred.append(gen(audio_feat.unsqueeze(0), ar)[:, :, :window_size])
-        ar = pred[-1][:, :, :window_size]
-    full_pred = torch.concatenate(pred, dim=2).squeeze(0)
-    #print(full_pred.shape)
-    full_pred = full_pred.transpose(1, 0).cpu().numpy()
-    y_unrolled = y_unrolled.transpose(1, 0).cpu().numpy()
-    #print(full_pred.shape, y_unrolled.shape)
-    #print("First feature corr:", scipy.stats.pearsonr(full_pred[:, 0], y_unrolled[:, 0]))
+    # Add 10 "batches" of blank collated audio as zero padding to start so
+    # the generator can autoregressively correctly generate the first 10 frames
+    first_audio = torch.zeros((10, 512, 50)).to(device)
+    clt_audio = torch.concatenate([first_audio, clt_audio], dim=0)
+
+    # Initialize first EMA CAR to zeros
+    first_ema = torch.zeros((1, 12, 50)).to(device)
+
+    # Accumulate all the predicted EMA together and reuse as context
+    context_ema = first_ema
+
+    for i in range(clt_audio.shape[0]):
+        input_audio = clt_audio[i].unsqueeze(0)
+        input_ema = context_ema[:, :, -50:]
+
+        next_gen = gen(input_audio, input_ema)
+        context_ema = torch.cat([context_ema, next_gen], dim=2)
+    context_ema = context_ema[:, :, 50:]
+
+    # Reformat for plotting purposes
+    pred_ema = context_ema.squeeze(0).transpose(1, 0).detach().cpu()
+    true_ema = wav_ema_collate.uncollate(clt_ema).squeeze(0).transpose(1, 0).detach().cpu()
+    
+    return pred_ema, true_ema
+
+def correlations(pred_ema, true_ema):
     corrs = []
     for i in range(12):
-        corrs.append(scipy.stats.pearsonr(full_pred[:, i], y_unrolled[:, i])[0])
-    corr_mean = np.mean(corrs)
-    print("Correlations:", corr_mean)
-    return full_pred, y_unrolled, corr_mean
+        corr = np.corrcoef(pred_ema[i], true_ema[i])[0, 1]
+        corrs.append(corr)
+    return np.mean(corrs)
 
 @torch.no_grad()
 def eval_audio(audio, true_ema):
@@ -164,12 +126,9 @@ def eval_audio(audio, true_ema):
 def save_ckpt(corr, train_split=90):
     torch.save({
         'gen_state_dict': gen.state_dict(),
-        'disc_state_dict': disc.state_dict(),
         'gen_optimizer_state_dict': gen_optimizer.state_dict(),
-        'disc_optimizer_state_dict': disc_optimizer.state_dict(),
         'gen_scheduler_state_dict': gen_scheduler.state_dict(),
-        'disc_scheduler_state_dict': disc_scheduler.state_dict()
-    }, f"ckpts/hfcar_l1_noup_5res_noadv_{train_split}_{round(corr, 2)}.pth")
+    }, f"ckpts/hfgen_l1_noup_5res_{train_split}_{round(corr, 2)}.pth")
 
 step = 0
 disc_start = 0
@@ -180,7 +139,6 @@ eval_step = 200
 # (1) (2) Get batch
 data_tqdm = tqdm(dataloader)
 gen_loss = torch.tensor([999])
-disc_loss = torch.tensor([999])
 
 test_batch = next(iter(test_dataloader))
 
@@ -192,11 +150,10 @@ for batch in data_tqdm:
     if step >= gen_start:
         gen_loss = train_gen_step(batch)
 
-    # if step >= disc_start and step % 5 == 0:
-    #     disc_loss = train_disc_step(batch)
-    
     if step % eval_step == 0:
-        pred_ema, true_ema, corr = eval_gen(test_batch)
+        pred_ema, true_ema = eval_gen(test_batch)
+        corr = correlations(pred_ema, true_ema)
+        print(f"Correlations: {round(corr, 2)}")
         feat_num = 0
         plt.plot(true_ema[:300, feat_num], label="target")
         plt.plot(pred_ema[:300, feat_num], label="pred")
@@ -207,12 +164,12 @@ for batch in data_tqdm:
             save_ckpt(corr)
             best_corr = corr
 
-    #data_tqdm.set_postfix(gen_loss=gen_loss.item(), disc_loss=disc_loss.item())
     data_tqdm.set_postfix(gen_loss=gen_loss.item())
     step += 1
 
-pred_ema, true_ema, corr = eval_gen(test_batch)
-feat_num = 0
+pred_ema, true_ema = eval_gen(test_batch)
+corr = correlations(pred_ema, true_ema)
+print(f"Correlations: {round(corr, 2)}")
 
 if corr > best_corr:
     save_ckpt(corr)

@@ -5,6 +5,7 @@ import numpy as np
 
 import s3prl.hub
 import torch
+import torch.nn.functional as F
 import torchaudio
 
 class WavEMADataset(torch.utils.data.Dataset):
@@ -56,7 +57,21 @@ class WavEMADataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         audio, _ = torchaudio.load(self.wav_files[idx])
         audio = audio.to(self.device)
-        audio_features = self.feature_model(audio).to(self.device)
+
+        audio = torch.cat([audio[:, -16000:], audio], dim=1)
+
+        feats = []
+        for i in range(16000, audio.shape[1], 1800):
+            curr_audio = audio[:, i - 16000:i+1800]
+            if curr_audio.shape[1] < 1800:
+                curr_audio = F.pad(curr_audio, (0, 1800 - curr_audio.shape[1]))
+            feat = self.feature_model(curr_audio).to(self.device)
+            #feat = feat.transpose(1, 2)
+            feat = feat[:, :, -5:]
+            feats.append(feat)
+        audio_features = torch.cat(feats, dim=2)
+
+        # audio_features = self.feature_model(audio).to(self.device)
 
         ema = torch.from_numpy(np.load(self.ema_files[idx])).to(self.device)
         ema = torch.transpose(ema, 0, 1).unsqueeze(0)
