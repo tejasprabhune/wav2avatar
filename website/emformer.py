@@ -67,6 +67,28 @@ class EMAEmformer(torch.nn.Module):
         x = torch.tensor(EMAEmformer.butter_bandpass_filter(x, 10, 50).copy())
         return x, state
 
+    def predict_ema(self, full_input, state=None):
+        x = None
+        segment_length = 5
+        device = 0
+        lengths = torch.zeros(full_input.shape[0],) + 50
+        lengths = lengths.to(device)
+        input_size = segment_length #+ right_context_length
+        for i in range(0, full_input.shape[1], segment_length):
+            input_ = full_input[:, i:i+input_size, :]
+            if input_.shape[1] < input_size:
+                input_ = F.pad(input_, (0, 0, 0, input_size - input_.shape[1]))
+            x2, lengths, state = self.emformer.infer(input_, lengths, state)
+            x2 = self.output_layer(x2).squeeze(0)
+            if x == None:
+                x = x2
+            else:
+                x = torch.cat([x, x2], dim=0)
+
+        x = x.detach().cpu()
+        x = torch.tensor(EMAEmformer.butter_bandpass_filter(x, 10, 50).copy())
+        return x, state
+
     def butter_bandpass(cut, fs, order=5):
         if isinstance(cut, list) and len(cut) == 2:
             return scipy.signal.butter(order, cut, fs=fs, btype="bandpass")
