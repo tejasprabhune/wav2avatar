@@ -4,48 +4,6 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 import * as TWEEN from '@tweenjs/tween.js'
 
-let pc = new RTCPeerConnection();
-
-async function createOffer() {
-    console.log("Sending offer request");
-
-    const offerResponse = await fetch("/offer", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            sdp: "",
-            type: "offer",
-        }),
-    });
-
-    const offer = await offerResponse.json();
-    console.log("Received offer response:", offer);
-
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-}
-
-
-async function changeText() {
-    const response = await fetch("/audio_feed");
-    const readableStream = response.body;
-    const reader = readableStream.getReader();
-
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        console.log(done);
-        var text = new TextDecoder("utf-8").decode(value);
-        var parsed_json = JSON.parse(text);
-        //console.log(parsed_json);
-        data.push(parsed_json);
-        //animate();
-    }
-}
 var default_data = {'tt': [[-5.832118511199951,
    -5.109104633331299,
    -5.18584680557251,
@@ -173,177 +131,117 @@ const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.inner
 const renderer = new THREE.WebGLRenderer();
 const controls = new OrbitControls( camera, renderer.domElement );
 var avatar;
-function loadWorld() {
-    scene.add(new THREE.AxesHelper(5))
-    scene.fog = new THREE.Fog( 0x000001, 1, 300 );
 
-    const color2 = new THREE.Color(0x000000);
+scene.add(new THREE.AxesHelper(5))
+scene.fog = new THREE.Fog( 0x000001, 1, 300 );
 
-    scene.background = color2;
+const color2 = new THREE.Color(0x000000);
 
-    const hemlight = new THREE.HemisphereLight( 0xffffbb, 0x080820, 1 );
-    scene.add (hemlight);
+scene.background = color2;
 
-    const outsideLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+const hemlight = new THREE.HemisphereLight( 0xffffbb, 0x080820, 1 );
+scene.add (hemlight);
 
-    outsideLight.position.x = 0;
-    outsideLight.position.y = 70;
-    outsideLight.position.z = 100;
+const outsideLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
 
-    scene.add( outsideLight );
-    const amblight = new THREE.AmbientLight( 0x404040 ); // soft white light
-    scene.add( amblight );
+outsideLight.position.x = 0;
+outsideLight.position.y = 70;
+outsideLight.position.z = 100;
 
-    //camera.position.set();
-    camera.position.z = 140;
-    camera.position.y = 0;
+scene.add( outsideLight );
+const amblight = new THREE.AmbientLight( 0x404040 ); // soft white light
+scene.add( amblight );
 
-    renderer.setSize( window.innerWidth - 10, window.innerHeight );
-    document.body.appendChild( renderer.domElement );
+//camera.position.set();
+camera.position.z = 140;
+camera.position.y = 0;
 
-    controls.target.y = 5;
+renderer.setSize( window.innerWidth - 10, window.innerHeight );
+document.body.appendChild( renderer.domElement );
 
-    const geometry = new THREE.BoxGeometry( 1, 1, 1 );
-    const material = new THREE.MeshBasicMaterial( { color: 0x00bb00 } );
-    const cube = new THREE.Mesh( geometry, material );
-    const clock = new THREE.Clock();
-    const speed = 0.4167;
-    var delta = 0;
-    cube.position.z = 100;
+controls.target.y = 5;
 
-    const loader = new FBXLoader()
+const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+const material = new THREE.MeshBasicMaterial( { color: 0x00bb00 } );
+const cube = new THREE.Mesh( geometry, material );
+const clock = new THREE.Clock();
+const speed = 0.4167;
+var delta = 0;
+cube.position.z = 100;
 
-    loader.load( '/static/roger_avatar.fbx', (object) => {
+var animId;
 
-        avatar = object;
+const loader = new FBXLoader()
 
-        object.traverse(function (child) {
-            if (child.isMesh) {
-              console.log(child.geometry.attributes.uv)
-            }
-        })
+function afterLoad(object) {
+  createOffer();
+  changeText();
 
-        object.scale.set(1, 1, 1)
-        //object.computeFaceNormals();
-        scene.add(object)
+  var i = 0;
+  var total_frames = 0;
+  var delay = 3;
+  var parts_obj = getParts(object)
+  var parts = ["tt", "tb", "td", "li", "ll", "ul"]
+  var curr_data = data.pop();
+  console.log(curr_data);
+  var last_data = curr_data["tt"][0];
 
-        var ignore1 = new THREE.Vector3();
-        var ignore2 = new THREE.Vector3();
-        var front_vector = new THREE.Vector3();
+  // tweenUpdate(createTarget(curr_data, i), parts_obj);
 
-        // get the direction the camera is pointing at
-        camera.matrix.extractBasis ( ignore1, ignore2, front_vector );
+  function animate() {
+      if (total_frames % delay == 0) {
+          tweenUpdate(createTarget(curr_data, i), parts_obj);
+          console.log(i);
+          if (i == curr_data["tt"][0].length - 1) {
+              if (i > 10) {
+                cancelAnimationFrame(animId);
+                return;
+              }
+              i = 0;
+              if (data.length > 0) {
+                  for (const part of parts) {
+                      console.log(part);
+                      default_data[part] = [
+                          Array(1).fill(curr_data[part][0][4]),
+                          Array(1).fill(curr_data[part][1][4])
+                      ];
+                  }
+                  console.log(default_data);
+                  curr_data = data.pop();
+              } else {
+                  curr_data = default_data;
+              }
+          } else {
+              i += 1;
+          }
+      }
+      total_frames += 1;
 
-        // put the camera at a negative distance from the object
-        //camera.position.copy(object.position);
-        //camera.position.addScaledVector(front_vector, -4);
 
-        console.log(camera);
-        console.log(object)
+      renderer.render(scene, camera);
+      animId = requestAnimationFrame( animate );
+      //console.log(data);
+      //controls.update();
 
-        const faceMaterial = new THREE.MeshStandardMaterial();
-        const faceColor = new THREE.Color(0xd39972);
-        faceMaterial.color = faceColor;
+      //console.log(TWEEN);
+      //TWEEN.update(time);
+      //renderer.render( scene, camera );
+      //changeText();
+  }
+  animate();
 
-        const whiteMaterial = new THREE.MeshStandardMaterial();
-        const whiteColor = new THREE.Color('white');
-        const blackColor = new THREE.Color(0x593716);
-        const brownColor = new THREE.Color(0x9e6b4a);
-        whiteMaterial.color = whiteColor;
+  //ul.position.y = 0;
+  //ul.position.z = 0;
+  getParts(object);
+  return object;
 
-        // Brown Irises
-        object.children[1].children[1].material[1].color = brownColor;
-        console.log(object.children[1].children[1].material)
-
-        // White Cornea
-        object.children[1].children[1].material[0] = new THREE.MeshStandardMaterial();
-        object.children[1].children[1].material[0].color = whiteColor;
-
-        object.children[1].children[2].material[0] = object.children[1].children[1].material[0];
-
-        // Face Fragment Color
-        object.children[1].children[0].material[0].color = blackColor;
-        object.children[1].children[0].material[1].color = faceColor;
-
-        // Face Full Color
-        console.log(object.children[5].children[1])
-        object.children[5].children[1].material = faceMaterial;
-        console.log(object.children[5].children[1])
-        //object.children[5].children[1].material.color.r = 1;
-
-        // Teeth
-        console.log(object.children[5].children)
-        object.children[5].children[0].material = whiteMaterial;
-
-        object.children[0].material = whiteMaterial;
-
-        // Joint
-
-        console.log(object.children[7])
-        var i = 0;
-        var total_frames = 0;
-        var delay = 5;
-        var parts_obj = getParts(object)
-        var parts = ["tt", "tb", "td", "li", "ll", "ul"]
-        var curr_data = data.pop();
-        function animate() {
-            delta = clock.getDelta();
-            //ul.position.x += speed * delta;
-            if (total_frames % delay == 0) {
-                tweenUpdate(createTarget(curr_data, i), parts_obj);
-                if (i == 4) {
-                    i = 0;
-                    if (data.length > 0) {
-                        for (const part of parts) {
-                            console.log(part);
-                            default_data[part] = [
-                                Array(5).fill(curr_data[part][0][4]),
-                                Array(5).fill(curr_data[part][1][4])
-                            ];
-                        }
-                        console.log(default_data);
-                        curr_data = data.pop();
-                    } else {
-                        curr_data = default_data;
-                    }
-                } else {
-                    i += 1;
-                }
-            }
-            total_frames += 1;
-
-            
-        
-            renderer.render(scene, camera);
-            requestAnimationFrame( animate );
-            console.log(data);
-            controls.update();
-
-            //console.log(TWEEN);
-            //TWEEN.update(time);
-            //renderer.render( scene, camera );
-            //changeText();
-        }
-        animate();
-
-        //ul.position.y = 0;
-        //ul.position.z = 0;
-        getParts(object);
-        return object;
-
-    }, undefined, function ( error ) {
-
-    	console.error( error );
-
-    } );
 }
 
 
-
 function tweenUpdate(position, parts) {
-        console.log(position);
-        console.log(parts.tt.position.y);
-        console.log(position.tty);
+        //console.log(position);
+        //console.log(parts.tt.position.y);
+        //console.log(position.tty);
         parts.tt.position.y = position.tty;
         parts.tt.position.z = position.ttz;
 
@@ -378,18 +276,18 @@ function tweenUpdate(position, parts) {
 
 function createTarget(json_data, i) {
     return {
-        tty: json_data["tt"][0][i] - 2, ttz: json_data["tt"][1][i] - 0,
-        tby: json_data["tb"][0][i] - 2, tbz: json_data["tb"][1][i] + 9,
-        tdy: json_data["td"][0][i] - 2, tdz: json_data["td"][1][i] + 9,
-        uly: json_data["ul"][0][i] - 3, ulz: json_data["ul"][1][i] + 6,
-        lly: json_data["ll"][0][i] - 0, llz: json_data["ll"][1][i] + 7,
-        liy: json_data["li"][0][i] - 4, liz: json_data["li"][1][i] - 6,
-        li_hingez: json_data["li"][1][i] - 12,
-        tongue_basey: json_data["li"][0][i] - 0, tongue_basez: json_data["li"][1][i] - 15,
-        head_liy: json_data["li"][0][i] - 2, head_liz: json_data["li"][1][i] - 3,
-        head_li_basez: json_data["ul"][1][i] - 30,
-        head_basez: json_data["ul"][1][i] - 30,
-        upper_teeth_jointz: json_data["ul"][1][i] - 19,
+        tty: 3 * json_data["tt"][0][i] - 5, ttz: 3 * json_data["tt"][1][i] + 5,
+        tby: 3 * json_data["tb"][0][i] - 5, tbz: 3 * json_data["tb"][1][i] + 5,
+        tdy: 3 * json_data["td"][0][i] - 5, tdz: 3 * json_data["td"][1][i] + 5,
+        uly: 2 * json_data["ul"][0][i] + 1, ulz: 3 * json_data["ul"][1][i] + 28,
+        lly: 3 * json_data["ll"][0][i] - 18, llz: 3 * json_data["ll"][1][i] + 23,
+        liy: 3 * json_data["li"][0][i] - 15, liz: 3 * json_data["li"][1][i] + 13,
+        li_hingez: 3 * json_data["li"][1][i] - 0,
+        tongue_basey: json_data["li"][0][i] - 0, tongue_basez: 0.7 * json_data["li"][1][i] - 10,
+        head_liy: 3 * json_data["li"][0][i] - 20, head_liz: 3 * json_data["li"][1][i] + 17,
+        head_li_basez: -9.563,
+        head_basez: -5.343,
+        upper_teeth_jointz: 3.985,
     }
 }
 
@@ -429,9 +327,128 @@ function getParts(object) {
     }
 }
 
+let pc = new RTCPeerConnection();
 
-loadWorld();
-console.log(avatar);
-createOffer();
-changeText();
+async function createOffer() {
+    console.log("Sending offer request");
+
+    const offerResponse = await fetch("/offer", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            sdp: "",
+            type: "offer",
+        }),
+    });
+
+    const offer = await offerResponse.json();
+    console.log("Received offer response:", offer);
+
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+}
+
+
+async function changeText() {
+    const response = await fetch("/audio_feed");
+    const readableStream = response.body;
+    const reader = readableStream.getReader();
+
+    var audio = new Audio("static/wav/mngu0_s1_1165.wav");
+    audio.play();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        console.log(done);
+        var text = new TextDecoder("utf-8").decode(value);
+        for (const part of split(text)) {
+            console.log(part);
+            var parsed_json = JSON.parse(part);
+            data.push(parsed_json);
+        }
+    }
+}
+
+function split(data) {
+    var parts = data.split("\n");
+    parts = parts.filter(function (el) {
+        return el !== "";
+    });
+    return parts;
+}
+
+function setupAvatar(object) {
+  object.traverse(function (child) {
+      if (child.isMesh) {
+        // console.log(child.geometry.attributes.uv)
+      }
+  })
+
+  object.scale.set(1, 1, 1)
+  //object.computeFaceNormals();
+  scene.add(object)
+
+  var ignore1 = new THREE.Vector3();
+  var ignore2 = new THREE.Vector3();
+  var front_vector = new THREE.Vector3();
+
+  // get the direction the camera is pointing at
+  camera.matrix.extractBasis ( ignore1, ignore2, front_vector );
+
+  // put the camera at a negative distance from the object
+  //camera.position.copy(object.position);
+  //camera.position.addScaledVector(front_vector, -4);
+
+  //console.log(camera);
+  //console.log(object)
+
+  const faceMaterial = new THREE.MeshStandardMaterial();
+  const faceColor = new THREE.Color(0xd39972);
+  faceMaterial.color = faceColor;
+
+  const whiteMaterial = new THREE.MeshStandardMaterial();
+  const whiteColor = new THREE.Color('white');
+  const blackColor = new THREE.Color(0x593716);
+  const brownColor = new THREE.Color(0x9e6b4a);
+  whiteMaterial.color = whiteColor;
+
+  // Brown Irises
+  object.children[1].children[1].material[1].color = brownColor;
+  //console.log(object.children[1].children[1].material)
+
+  // White Cornea
+  object.children[1].children[1].material[0] = new THREE.MeshStandardMaterial();
+  object.children[1].children[1].material[0].color = whiteColor;
+
+  object.children[1].children[2].material[0] = object.children[1].children[1].material[0];
+
+  // Face Fragment Color
+  object.children[1].children[0].material[0].color = blackColor;
+  object.children[1].children[0].material[1].color = faceColor;
+
+  // Face Full Color
+  //console.log(object.children[5].children[1])
+  object.children[5].children[1].material = faceMaterial;
+  //console.log(object.children[5].children[1])
+  //object.children[5].children[1].material.color.r = 1;
+
+  // Teeth
+  //console.log(object.children[5].children)
+  object.children[5].children[0].material = whiteMaterial;
+
+  object.children[0].material = whiteMaterial;
+}
+
+loader.load( '/static/roger_avatar.fbx', (object) => {
+  setupAvatar(object);
+  afterLoad(object);
+  renderer.render(scene, camera);
+});
+
+//console.log(avatar);
 //animate();

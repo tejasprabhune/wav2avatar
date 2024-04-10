@@ -1,7 +1,10 @@
 from flask import Flask, render_template, Response, request, jsonify, stream_with_context
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
+import numpy as np
+
 import torch
+import torchaudio
 import s3prl.hub
 import emformer
 import nema_data
@@ -18,6 +21,7 @@ import sounddevice as sd
 
 app = Flask(__name__, static_url_path='/static')
 
+TEMPLATES_AUTO_RELOAD = True
 
 async def offer_async():
     params = await request.json
@@ -38,10 +42,6 @@ async def offer_async():
     response_data = {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
     return jsonify(response_data)
-
-@app.route('/')
-def index():
-    return render_template('index.html')
 
 def offer():
     loop = asyncio.new_event_loop()
@@ -72,10 +72,25 @@ def generate_frames(feature_model, emformer_model):
                 print(state[0][1].mean())
                 pred = pred.detach().cpu().numpy()
 
-                fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=True, normalize=True)
+                fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
                 # print(fmt_pred.get_json())
 
                 yield json.dumps(fmt_pred.get_json()) + "\n"
+
+def generate_frames_static():
+    ema = np.load("static/ema/mng_1165_emf.npy")
+
+    time.sleep(5)
+    for i in range(0, ema.shape[0], 5):
+        pred = ema[i:i+5]
+        fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
+        print(fmt_pred.get_json()['li'])
+        yield json.dumps(fmt_pred.get_json()) + "\n"
+        time.sleep(0.01)
+    # fmt_pred = nema_data.NEMAData(ema, is_file=False, demean=False, normalize=False)
+    print(ema.shape)
+    yield json.dumps(fmt_pred.get_json()) + "\n"
+
 
 def get_feature_model():
     print("--- Getting WavLM feature extractor ---")
@@ -125,6 +140,22 @@ def audio_feed():
     emformer_model = get_emformer_model()
 
     return Response(generate_frames(feature_model, emformer_model))
+
+@app.route('/audio_feed_static')
+def audio_feed_static():
+    return Response(generate_frames_static())
+
+####################
+#    Page routes   #
+####################
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/avatar')
+def avatar():
+    return render_template('avatar.html')
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')

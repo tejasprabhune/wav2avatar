@@ -3,23 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<script type="importmap">
-	  {
-	    "imports": {
-	      "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
-	      "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/",
-		  "@tweenjs/tween.js": "https://cdnjs.cloudflare.com/ajax/libs/tween.js/23.1.1/tween.esm.js"
-	    }
-	  }
-	</script>
-	<script type="module" src="{{url_for('static', filename='main.js')}}"></script>
-	<script type="module" src="{{url_for('static', filename='tween.esm.js')}}"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script type="module" src="{{url_for('static', filename='home.js')}}"></script>
     <title>Streaming Speech-to-Avatar</title>
 	<style>
 		body { margin: 0; }
 	</style>
 </head>
 <body>
+
+  <h1>Real-Time Speech-Driven Avatars</h1>
+
+  <p>Using electromagnetic articulography (EMA) as intermediate features.</p>
+
+  <button id="start_avatar_button"><a href="{{ url_for('avatar')}}">Start Avatar</a></button>
+
 </body>
 </html>

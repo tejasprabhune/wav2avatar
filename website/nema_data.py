@@ -27,8 +27,8 @@ class NEMAData:
 
         self.maya_data = {}
 
-        for part in self.parts:
-            self.renormalize_part(part, graph=False)
+        # for part in self.parts:
+        #     self.renormalize_part(part, graph=False)
 
         if normalize:
             self.normalize_all(normalize_y=False)
