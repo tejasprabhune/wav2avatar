@@ -27,9 +27,8 @@ class NEMAData:
 
         self.maya_data = {}
 
-        # for part in self.parts:
-        #     self.renormalize_part(part, graph=False)
-
+        #for part in self.parts:
+        #    self.renormalize_part(part, graph=False)
         if normalize:
             self.normalize_all(normalize_y=False)
 
@@ -402,3 +401,26 @@ class NEMAData:
 
             json_nema[part] = part_data[:, 2:4].transpose(1, 0).tolist()
         return json_nema
+
+    @staticmethod
+    def mngu0_to_hprc(mng_arr):
+        td = mng_arr[:, 0:2]
+        tb = mng_arr[:, 2:4]
+        tt = mng_arr[:, 4:6]
+        li = mng_arr[:, 6:8]
+        ul = mng_arr[:, 8:10]
+        ll = mng_arr[:, 10:12]
+
+        hprc_arr = np.zeros_like(mng_arr)
+        hprc_arr[:, 0:2] = li
+        hprc_arr[:, 2:4] = ul
+        hprc_arr[:, 4:6] = ll
+        hprc_arr[:, 6:8] = tt
+        hprc_arr[:, 8:10] = tb
+        hprc_arr[:, 10:12] = td
+
+
+        for i in range(0, 12, 2):
+            hprc_arr[:, i] = hprc_arr[:, i] * -1
+
+        return hprc_arr

@@ -50,32 +50,39 @@ def offer():
     future = asyncio.run_coroutine_threadsafe(offer_async(), loop)
     return future.result()
 
-def generate_frames(feature_model, emformer_model):
+def generate_frames(feature_model, emformer_model: emformer.EMAEmformer):
     q_in = queue.Queue()
 
     def callback(indata, frame_count, time_info, status):
         q_in.put(indata)
         #print(indata.shape)
 
+    audio, sr = torchaudio.load("static/wav/mngu0_s1_1165.wav")
+    audio_feat = feature_model(audio)
+    pred = emformer_model.predict_ema(audio_feat)
+
     stream = sd.InputStream(samplerate=16000, callback=callback, channels=1, blocksize=1800)
     state = None
     with stream:
+        print("--- Starting streaming ---")
         while True:
             indata = q_in.get()
 
             audio = torch.from_numpy(indata[:, 0])
-            if (emformer_model.is_speech(audio[:1600].numpy(), 16000)):
-                audio = torch.reshape(audio, (1, -1))
-                #print(audio.shape)
-                audio_feat = feature_model(audio)
-                pred, state = emformer_model.predict_ema(audio_feat, state)
-                print(state[0][1].mean())
-                pred = pred.detach().cpu().numpy()
+            # if (emformer_model.is_speech(audio[:1600].numpy(), 16000)):
+            audio = torch.reshape(audio, (1, -1))
+            #print(audio.shape)
+            audio_feat = feature_model(audio)
+            pred, state = emformer_model.predict_ema(audio_feat, state)
+            # print(state[0][1].mean())
+            pred = pred.detach().cpu().numpy()
+            pred = nema_data.NEMAData.mngu0_to_hprc(pred)
 
-                fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
-                # print(fmt_pred.get_json())
+            fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
+            # print(fmt_pred.get_json())
 
-                yield json.dumps(fmt_pred.get_json()) + "\n"
+            yield json.dumps(fmt_pred.get_json()) + "\n"
+            #time.sleep(0.01)
 
 def generate_frames_static():
     ema = np.load("static/ema/mng_1165_emf.npy")
@@ -88,8 +95,38 @@ def generate_frames_static():
         yield json.dumps(fmt_pred.get_json()) + "\n"
         time.sleep(0.01)
     # fmt_pred = nema_data.NEMAData(ema, is_file=False, demean=False, normalize=False)
-    print(ema.shape)
-    yield json.dumps(fmt_pred.get_json()) + "\n"
+    #print(ema.shape)
+    #yield json.dumps(fmt_pred.get_json()) + "\n"
+
+def generate_frames_audio(feature_model, emformer_model: emformer.EMAEmformer):
+    audio, sr = torchaudio.load("static/wav/mngu0_s1_1165.wav")
+
+    # time.sleep(5)
+    #print("--- Starting offline ---")
+    state = None
+    #audio = torch.reshape(audio, (1, -1))
+    #audio_feat = feature_model(audio)
+    #pred, state = emformer_model.predict_ema(audio_feat, state)
+
+    #pred = pred.detach().cpu().numpy()
+
+    #fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
+    #yield json.dumps(fmt_pred.get_json()) + "\n"
+
+    print("--- Starting streaming ---")
+    print(audio.shape)
+    for i in range(0, audio.shape[1], 1600):
+        curr_audio = audio[:, i:i+1600]
+        audio_feat = feature_model(curr_audio)
+        pred, state = emformer_model.predict_ema(audio_feat, state)
+        pred = pred.detach().cpu().numpy()
+        pred = nema_data.NEMAData.mngu0_to_hprc(pred)
+        print(pred)
+
+        fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
+        yield json.dumps(fmt_pred.get_json()) + "\n"
+        #time.sleep(0.01)
+
 
 
 def get_feature_model():
@@ -110,7 +147,7 @@ def get_emformer_model():
     ffn_dim=512
     num_layers=15
     segment_length=5
-    left_context_length=45
+    left_context_length=20
 
     emformer_model = emformer.EMAEmformer(
         input_dim=input_dim,
@@ -121,7 +158,7 @@ def get_emformer_model():
         left_context_length=left_context_length
     )
 
-    ckpt = torch.load(f"ckpts/emf_l{left_context_length}_r0_p{segment_length}_nh{num_heads}__nl{num_layers}_ffd{ffn_dim}_0.83.pth", map_location="cuda:0")
+    ckpt = torch.load(f"ckpts/emf_l{left_context_length}_r0_p{segment_length}_nh{num_heads}__nl{num_layers}_ffd{ffn_dim}_0.89.pth", map_location="cuda:0")
 
     emformer_model.load_state_dict(ckpt["emformer_state_dict"])
 

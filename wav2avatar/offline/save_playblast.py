@@ -20,6 +20,6 @@ def playblast_avatar(
         sound_node (str): name of audio node to use in video (can be found by
                     right clicking on timeline -> Audios)
     """
-    cmds.playblast(st=start, et=end, f=filename, s=sound_node, w=width, h=height, fmt="movie", p=100, os=True, orn=False)
+    cmds.playblast(st=start, et=end, f=filename, s=sound_node, w=width, h=height, fmt="qt", p=100, os=True, orn=False)
    
-playblast_avatar(start=0, end=800, width=1280, height=720, filename="C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\pataka_hfcar_conv", sound_node="pataka")
+playblast_avatar(start=0, end=890, width=1280, height=720, filename="C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\spanish_emf_mid", sound_node="spanish_nature")

@@ -68,6 +68,8 @@ class EMAEmformer(torch.nn.Module):
         return x, state
 
     def predict_ema(self, full_input, state=None):
+        full_input = full_input.transpose(1, 2)
+
         x = None
         segment_length = 5
         device = 0
