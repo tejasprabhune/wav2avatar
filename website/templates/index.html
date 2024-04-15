@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script type="module" src="{{url_for('static', filename='home.js')}}"></script>
-    <title>Streaming Speech-to-Avatar</title>
-	<style>
-		body { margin: 0; }
-	</style>
+    <script type="module" src="{{url_for('static', filename='home.js')}}"></script>
+    <link rel="stylesheet" href="https://use.typekit.net/uyn3btb.css">
+    <link rel="stylesheet" href="{{url_for('static', filename='index.css')}}">
+    <title>speech-driven avatars</title>
 </head>
 <body>
 
-  <h1>Real-Time Speech-Driven Avatars</h1>
+  <h1>real-time speech-driven avatars</h1>
 
-  <p>Using electromagnetic articulography (EMA) as intermediate features.</p>
 
-  <button id="start_avatar_button"><a href="{{ url_for('avatar')}}">Start Avatar</a></button>
+  <div>
+    <a href="{{ url_for('avatar')}}" id="start-avatar-button">start avatar</a>
+    <a href="{{ url_for('midsagittal')}}" id="start-avatar-button">start midsagittal</a>
+  </div>
 
 </body>
 </html>

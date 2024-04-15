@@ -15,9 +15,14 @@
     <script type="module" src="{{url_for('static', filename='main.js')}}"></script>
 	  <script type="module" src="{{url_for('static', filename='tween.esm.js')}}"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{{url_for('static', filename='rt_avatar.css')}}">
+    <link rel="stylesheet" href="https://use.typekit.net/uyn3btb.css">
+
 	</script>
   </head>
   <body>
-    <h1>Real-Time Speech-Driven Avatars</h1>
+    <h1>real-time speech-driven avatars</h1>
+    <div id="avatar-container"></div>
+    <h1 id="status">loading</h1>
   </body>
 </html>

@@ -59,6 +59,19 @@ def animateZ(part, keys, offset=0, factor=1):
     for key in keys:
         keyZTranslate(part, key[0], (key[3]*factor) + offset)
 
+def animateY_par(part, keys, parent_mesh, offset=0, factor=1):
+    for i in range(len(keys)):
+        key = keys[i]
+        parkey = parkeys[i]
+        y = key[2] + parkey[2]
+        keyYTranslate(part, key[0], y*factor + offset)
+
+def animateZ_par(part, keys, parent_mesh, offset=0, factor=1):
+    for i in range(len(keys)):
+        key = keys[i]
+        parkey = parkeys[i]
+        z = key[3] + parkey[3]
+        keyZTranslate(part, key[0], z*factor + offset)
 
 def animateXYZ(part, keys, offset=0):
     animateX(part, keys)
@@ -67,11 +80,32 @@ def animateXYZ(part, keys, offset=0):
 
 print(type(ema_handler.maya_data["tt"]))
 
-parts = ["tt", "tb", "td", "li", "ul", "ll"]
+parts = ["li", "ul", "ll"]
 for part in parts:
     clear_keys(part)
-    animateZ(part, ema_handler.maya_data[part], 5, factor=3)
-    animateY(part, ema_handler.maya_data[part], -5, factor=3)
+    animateZ(part, ema_handler.maya_data[part], 5, factor=5)
+    animateY(part, ema_handler.maya_data[part], 15, factor=1)
+    
+clear_keys("tt")
+clear_keys("tb")
+clear_keys("td")
+
+animateZ("tb", ema_handler.maya_data["tb"], 5, factor=5)
+animateY("tb", ema_handler.maya_data["tb"], 15, factor=5)
+
+animateZ_par("tt", ema_handler.maya_data["tt"], 
+    ema_handler.maya_data["tb"], 5, factor=1)
+animateY_par("tt", ema_handler.maya_data["tt"], 
+    ema_handler.maya_data["tb"], 0, factor=5)
+
+animateZ_par("td", ema_handler.maya_data["td"], 
+    ema_handler.maya_data["tb"], 5, factor=1)
+animateY_par("td", ema_handler.maya_data["td"], 
+    ema_handler.maya_data["tb"], 0, factor=5)
+
+animateZ("tb", ema_handler.maya_data["tb"], 5, factor=5)
+animateY("tb", ema_handler.maya_data["tb"], 15, factor=5)
+
 clear_keys("li_hinge")
 clear_keys("upper_teeth_joint")
 clear_keys("head_li")
@@ -93,5 +127,5 @@ animateY("li", ema_handler.maya_data["li"], -15, factor=3)
 
 #animateZ("head_li_base", ema_handler.maya_data["ul"], -15, factor=0.7)
 #animateZ("head_base", ema_handler.maya_data["ul"], -60)
-animateZ("tongue_base", ema_handler.maya_data["li"], -20)
-animateY("tongue_base", ema_handler.maya_data["li"], -10, factor=0.7)
+animateZ("tongue_base", ema_handler.maya_data["li"], 0)
+animateY("tongue_base", ema_handler.maya_data["li"], -20, factor=0.7)

@@ -58,19 +58,29 @@ scene.add( amblight );
 
 //camera.position.set();
 camera.position.z = 140;
-camera.position.y = 0;
+camera.position.y = 10;
 
-renderer.setSize( window.innerWidth - 10, window.innerHeight );
-document.body.appendChild( renderer.domElement );
+let width = window.innerWidth - 20;
+let height = window.innerHeight - 200;
+
+camera.aspect = width / height;
+camera.updateProjectionMatrix();
+renderer.setSize( width, height);
+renderer.render( scene, camera );
+
+
+let container = document.getElementById("avatar-container");
+let status = document.getElementById("status");
+
+container.appendChild( renderer.domElement );
+
+renderer.domElement.id = "rt-avatar-canvas";
 
 controls.target.y = 5;
 
 const geometry = new THREE.BoxGeometry( 1, 1, 1 );
 const material = new THREE.MeshBasicMaterial( { color: 0x00bb00 } );
 const cube = new THREE.Mesh( geometry, material );
-const clock = new THREE.Clock();
-const speed = 0.4167;
-var delta = 0;
 cube.position.z = 100;
 
 var animId;
@@ -261,6 +271,8 @@ async function changeText() {
     var audio = new Audio("static/wav/mngu0_s1_1165.wav");
     // audio.play();
 
+    status.innerHTML = "listening...";
+
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -308,10 +320,14 @@ function setupAvatar(object) {
   //console.log(object)
 
   const faceMaterial = new THREE.MeshStandardMaterial();
+  faceMaterial.polygonOffset = true;
+  faceMaterial.polygonOffsetFactor = -0.1;
   const faceColor = new THREE.Color(0xd39972);
   faceMaterial.color = faceColor;
 
   const whiteMaterial = new THREE.MeshStandardMaterial();
+  whiteMaterial.polygonOffset = true;
+  whiteMaterial.polygonOffsetFactor = -0.1;
   const whiteColor = new THREE.Color('white');
   const blackColor = new THREE.Color(0x593716);
   const brownColor = new THREE.Color(0x9e6b4a);
@@ -342,7 +358,23 @@ function setupAvatar(object) {
   object.children[5].children[0].material = whiteMaterial;
 
   object.children[0].material = whiteMaterial;
+
+  camera.translateZ(200);
+
+  translateCamera();
+
 }
+
+let camera_position = 0;
+function translateCamera() {
+  camera.translateZ(-1);
+  renderer.render(scene, camera);
+  camera_position += 1;
+  if (camera_position < 200) {
+    requestAnimationFrame(translateCamera);
+  }
+}
+
 
 loader.load( '/static/roger_avatar.fbx', (object) => {
   setupAvatar(object);

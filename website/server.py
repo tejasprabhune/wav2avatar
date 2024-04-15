@@ -58,7 +58,7 @@ def generate_frames(feature_model, emformer_model: emformer.EMAEmformer):
         #print(indata.shape)
 
     audio, sr = torchaudio.load("static/wav/mngu0_s1_1165.wav")
-    audio_feat = feature_model(audio)
+    audio_feat = feature_model(audio[:1800])
     pred = emformer_model.predict_ema(audio_feat)
 
     stream = sd.InputStream(samplerate=16000, callback=callback, channels=1, blocksize=1800)
@@ -87,13 +87,13 @@ def generate_frames(feature_model, emformer_model: emformer.EMAEmformer):
 def generate_frames_static():
     ema = np.load("static/ema/mng_1165_emf.npy")
 
-    time.sleep(5)
+    time.sleep(2)
     for i in range(0, ema.shape[0], 5):
         pred = ema[i:i+5]
         fmt_pred = nema_data.NEMAData(pred, is_file=False, demean=False, normalize=False)
         print(fmt_pred.get_json()['li'])
         yield json.dumps(fmt_pred.get_json()) + "\n"
-        time.sleep(0.01)
+        #time.sleep(0.01)
     # fmt_pred = nema_data.NEMAData(ema, is_file=False, demean=False, normalize=False)
     #print(ema.shape)
     #yield json.dumps(fmt_pred.get_json()) + "\n"
@@ -115,8 +115,8 @@ def generate_frames_audio(feature_model, emformer_model: emformer.EMAEmformer):
 
     print("--- Starting streaming ---")
     print(audio.shape)
-    for i in range(0, audio.shape[1], 1600):
-        curr_audio = audio[:, i:i+1600]
+    for i in range(0, audio.shape[1], 1800):
+        curr_audio = audio[:, i:i+1800]
         audio_feat = feature_model(curr_audio)
         pred, state = emformer_model.predict_ema(audio_feat, state)
         pred = pred.detach().cpu().numpy()
@@ -193,6 +193,10 @@ def index():
 @app.route('/avatar')
 def avatar():
     return render_template('avatar.html')
+
+@app.route('/midsagittal')
+def midsagittal():
+    return render_template('midsagittal.html')
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')
