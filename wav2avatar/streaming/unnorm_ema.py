@@ -22,8 +22,7 @@ study_path = "C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avat
 cj_path = "C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\cj_journal\\"
 website_path = "C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\website\\static\\"
 #ema_handler = NEMAData(wa_path + "mlk_pred_hb_m ng.npy", demean=True, normalize=True)
-ema_handler = NEMAData(website_path + "mngu0_s1_1165_emf.npy", demean=False, normalize=False)
-
+ema_handler = NEMAData(cj_path + "web/lock_rock_alpha=1.0_art.npy", demean=False, normalize=False)
 def clear_keys(part):
     startTime = cmds.playbackOptions(query=True, minTime=True)
     endTime = cmds.playbackOptions(query=True, maxTime=True)
@@ -59,14 +58,14 @@ def animateZ(part, keys, offset=0, factor=1):
     for key in keys:
         keyZTranslate(part, key[0], (key[3]*factor) + offset)
 
-def animateY_par(part, keys, parent_mesh, offset=0, factor=1):
+def animateY_par(part, keys, parkeys, offset=0, factor=1):
     for i in range(len(keys)):
         key = keys[i]
         parkey = parkeys[i]
         y = key[2] + parkey[2]
         keyYTranslate(part, key[0], y*factor + offset)
 
-def animateZ_par(part, keys, parent_mesh, offset=0, factor=1):
+def animateZ_par(part, keys, parkeys, offset=0, factor=1):
     for i in range(len(keys)):
         key = keys[i]
         parkey = parkeys[i]
@@ -80,31 +79,24 @@ def animateXYZ(part, keys, offset=0):
 
 print(type(ema_handler.maya_data["tt"]))
 
-parts = ["li", "ul", "ll"]
+parts = ["li", "ul", "ll", "tt", "tb", "td"]
 for part in parts:
     clear_keys(part)
-    animateZ(part, ema_handler.maya_data[part], 5, factor=5)
+    animateZ(part, ema_handler.maya_data[part], 5, factor=1)
     animateY(part, ema_handler.maya_data[part], 15, factor=1)
     
-clear_keys("tt")
-clear_keys("tb")
-clear_keys("td")
-
-animateZ("tb", ema_handler.maya_data["tb"], 5, factor=5)
+"""animateZ("tb", ema_handler.maya_data["tb"], 5, factor=5)
 animateY("tb", ema_handler.maya_data["tb"], 15, factor=5)
 
 animateZ_par("tt", ema_handler.maya_data["tt"], 
-    ema_handler.maya_data["tb"], 5, factor=1)
+    ema_handler.maya_data["tb"], -20, factor=1)
 animateY_par("tt", ema_handler.maya_data["tt"], 
     ema_handler.maya_data["tb"], 0, factor=5)
 
 animateZ_par("td", ema_handler.maya_data["td"], 
     ema_handler.maya_data["tb"], 5, factor=1)
 animateY_par("td", ema_handler.maya_data["td"], 
-    ema_handler.maya_data["tb"], 0, factor=5)
-
-animateZ("tb", ema_handler.maya_data["tb"], 5, factor=5)
-animateY("tb", ema_handler.maya_data["tb"], 15, factor=5)
+    ema_handler.maya_data["tb"], 0, factor=5)"""
 
 clear_keys("li_hinge")
 clear_keys("upper_teeth_joint")
@@ -112,20 +104,31 @@ clear_keys("head_li")
 clear_keys("head_base")
 clear_keys("head_li_base")
 clear_keys("tongue_base")
-animateZ("ll", ema_handler.maya_data["ll"], 23, factor=3)
-animateY("ll", ema_handler.maya_data["ll"], -18, factor=3)
-animateZ("li_hinge", ema_handler.maya_data["li"], 0, factor=3)
-animateZ("ul", ema_handler.maya_data["ul"], 28, factor=3)
-animateY("ul", ema_handler.maya_data["ul"], 1, factor=2)
+
+
+animateZ("tt", ema_handler.maya_data["tt"], -30, factor=3)
+animateY("tt", ema_handler.maya_data["tt"], 0, factor=3)
+
+animateZ("tb", ema_handler.maya_data["tb"], -40, factor=3)
+animateY("tb", ema_handler.maya_data["tb"], 5, factor=3)
+
+animateZ("td", ema_handler.maya_data["td"], -45, factor=3)
+animateY("td", ema_handler.maya_data["td"], 0, factor=3)
+
+animateZ("ll", ema_handler.maya_data["ll"], -19, factor=3)
+animateY("ll", ema_handler.maya_data["ll"], -12, factor=3)
+animateZ("li_hinge", ema_handler.maya_data["li"], -50, factor=1)
+animateZ("ul", ema_handler.maya_data["ul"], -15, factor=1)
+animateY("ul", ema_handler.maya_data["ul"], -3, factor=2)
 #animateZ("upper_teeth_joint", ema_handler.maya_data["ul"], -37)
-animateZ("head_li", ema_handler.maya_data["li"], 17, factor=3)
-animateY("head_li", ema_handler.maya_data["li"], -20, factor=3)
-animateZ("li", ema_handler.maya_data["li"], 13, factor=3)
+animateZ("head_li", ema_handler.maya_data["li"], -20, factor=3)
+animateY("head_li", ema_handler.maya_data["li"], -18, factor=3)
+animateZ("li", ema_handler.maya_data["li"], -30, factor=1)
 animateY("li", ema_handler.maya_data["li"], -15, factor=3)
 #animateY("head_li", ema_handler.maya_data["li"], -7)
 
 
 #animateZ("head_li_base", ema_handler.maya_data["ul"], -15, factor=0.7)
 #animateZ("head_base", ema_handler.maya_data["ul"], -60)
-animateZ("tongue_base", ema_handler.maya_data["li"], 0)
+animateZ("tongue_base", ema_handler.maya_data["li"], -40)
 animateY("tongue_base", ema_handler.maya_data["li"], -20, factor=0.7)

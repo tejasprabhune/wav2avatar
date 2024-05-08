@@ -269,7 +269,7 @@ async function createOffer() {
 
 
 async function changeText() {
-    const response = await fetch("/audio_feed_static");
+    const response = await fetch("/audio_feed");
     const readableStream = response.body;
     const reader = readableStream.getReader();
 

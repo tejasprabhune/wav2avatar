@@ -22,4 +22,4 @@ def playblast_avatar(
     """
     cmds.playblast(st=start, et=end, f=filename, s=sound_node, w=width, h=height, fmt="qt", p=100, os=True, orn=False)
    
-playblast_avatar(start=0, end=890, width=1280, height=720, filename="C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\spanish_emf_mid", sound_node="spanish_nature")
+playblast_avatar(start=0, end=35, width=1280, height=720, filename="C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\cj_journal\\web\\lock_rock_alpha_1_0", sound_node="lock_rock_alpha_1_0")
