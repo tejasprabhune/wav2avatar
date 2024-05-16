@@ -17,13 +17,28 @@ tested).
     cd wav2avatar
     ```
 
-1. Install `wav2avatar` as an editable module:
+1. Install `wav2avatar` as an editable module (see [Maya Scripting](#maya-scripting)):
 
     ```
     pip install -e .
+    mayapy -m pip install -e .
     ```
 
 1. Install `articulatory` from `https://github.com/articulatory/articulatory` and `s3prl` from `https://github.com/s3prl/s3prl` (see [s3prl notes](#s3prl--torchaudio)).
+
+### Headless
+
+Given an EMA `.npy` file and a corresponding audio `.wav` file, you can directly
+generate a midsagittal view of the avatar using the headless version of Maya
+(Maya Standalone). Using the `midsagittal.mb` file provided in this repo,
+you can use the `headless_blast.py` script as follows:
+
+```
+cd scripts
+mayapy headless_blast.py --maya_file <MIDSAGITTAL_PATH> --ema <EMA_PATH> --wav <WAV_PATH> --outdir <OUTPUT_DIR_PATH>
+
+mayapy headless_blast.py --maya_file ../wav2avatar/maya_models/midsagittal.mb --ema ../wav2avatar/inversion/ema/cj_journal/web/venture.npy --wav ../wav2avatar/inversion/ema/cj_journal/web/venture.wav
+```
 
 ### Offline
 
