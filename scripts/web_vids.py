@@ -100,8 +100,8 @@ def generate_vid(path, pb=True):
 	parts = ["li", "ul", "ll", "tt", "tb", "td"]
 	for part in parts:
 	    clear_keys(part)
-	    animateZ(part, ema_handler.maya_data[part], 5, factor=1)
-	    animateY(part, ema_handler.maya_data[part], 17, factor=1)
+	    #animateZ(part, ema_handler.maya_data[part], 5, factor=1)
+	    #animateY(part, ema_handler.maya_data[part], 17, factor=1)
 
 	clear_keys("li_hinge")
 	clear_keys("upper_teeth_joint")
@@ -120,12 +120,12 @@ def generate_vid(path, pb=True):
 	animateY("td", ema_handler.maya_data["td"], 4, factor=6)
 
 	animateZ("ll", ema_handler.maya_data["ll"], -22, factor=2)
-	animateY("ll", ema_handler.maya_data["ll"], 16, factor=12)
+	animateY("ll", ema_handler.maya_data["ll"], 17, factor=12)
 	
 	animateZ("li_hinge", ema_handler.maya_data["li"], -50, factor=1)
 	
 	animateZ("ul", ema_handler.maya_data["ul"], -18, factor=1)
-	animateY("ul", ema_handler.maya_data["ul"], -1, factor=10)
+	animateY("ul", ema_handler.maya_data["ul"], -2, factor=10)
 	
 	#animateZ("upper_teeth_joint", ema_handler.maya_data["ul"], -37)
 	animateZ("head_li", ema_handler.maya_data["li"], -20, factor=3)
@@ -140,12 +140,14 @@ def generate_vid(path, pb=True):
 	animateZ("tongue_base", ema_handler.maya_data["li"], -43)
 	animateY("tongue_base", ema_handler.maya_data["li"], -8, factor=6)
 	if pb:
-	    playblast_avatar(start=0, end=70, width=1280, height=720, filename=f"C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\cj_journal\\web\\{stem}", sound_node=stem)
+	    playblast_avatar(start=0, end=40, width=1080, height=1080, filename=f"C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\cj_journal\\web\\{stem}", sound_node=stem)
 
 web_path = pathlib.Path("C:\\Users\\tejas\\Documents\\UCBerkeley\\bci\\wav2avatar\\wav2avatar\\inversion\\ema\\cj_journal\\web\\")
+pb = False
 #for path in web_path.rglob("*.npy"):
-#    generate_vid(path)
-pb = True
-#generate_vid(web_path / "lock_rock_alpha_1_0.npy", pb=pb)
-#generate_vid(web_path / "spain.npy", pb=pb)
+#    print(path)
+#    generate_vid(path, pb=pb)
+
 generate_vid(web_path / "venture.npy", pb=pb)
+#generate_vid(web_path / "spain.npy", pb=pb)
+#generate_vid(web_path / "venture.npy", pb=pb)

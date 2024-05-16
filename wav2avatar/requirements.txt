@@ -1,4 +1,3 @@
-webrtcvad
 webrtcvad-wheels
 packaging
 importlib-metadata
